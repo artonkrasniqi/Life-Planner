@@ -9,6 +9,7 @@ import { markSVG, reactorSVG } from './ui/reactor.js';
 import { eyeButton } from './ui/widgets.js';
 import { confirmModal } from './ui/modal.js';
 import { buildSeed } from './seed.js';
+import { mountQuickbar, focusQuickbar } from './ui/quickbar.js';
 
 import * as dashboard from './views/dashboard.js';
 import * as calendar from './views/calendar.js';
@@ -180,6 +181,8 @@ function onKey(e) {
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
   if (document.getElementById('modal-root')?.firstChild) return;
 
+  if (e.key === '/') { e.preventDefault(); focusQuickbar(); return; }
+
   const n = parseInt(e.key, 10);
   if (n >= 1 && n <= VIEWS.length) { navigate(VIEWS[n - 1].id); return; }
 
@@ -271,10 +274,27 @@ async function firstRun() {
 /* ------------------------------------------------------------
    Start
    ------------------------------------------------------------ */
+/* ------------------------------------------------------------
+   Service Worker — macht die App auf dem Handy offlinefähig
+   ------------------------------------------------------------ */
+function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') return;
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register(new URL('../sw.js', import.meta.url))
+      .catch((err) => console.warn('[L.I.F.E. OS] Service Worker nicht registriert:', err));
+  });
+}
+
+/* ------------------------------------------------------------
+   Start
+   ------------------------------------------------------------ */
 async function start() {
   store.subscribe(() => renderView());
+  mountQuickbar($('#quickbar'));
   renderView();
   document.addEventListener('keydown', onKey);
+  registerSW();
   await boot();
   await firstRun();
 }

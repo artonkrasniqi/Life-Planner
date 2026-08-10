@@ -195,22 +195,23 @@ function txRow(t, cur, s) {
 
 /* ---------- Dialoge ---------- */
 
-export async function openTxForm() {
+/** @param {object|null} prefill  Werte aus der Schnellnotizzeile */
+export async function openTxForm(prefill = null) {
   const s = store.state;
   const values = await formModal({
     title: 'Neue Buchung',
     submitLabel: 'Buchen',
     fields: [
-      { name: 'kind', label: 'Art', type: 'select', options: [{ value: 'expense', label: 'Ausgabe' }, { value: 'income', label: 'Einnahme' }], value: 'expense' },
-      { name: 'amount', label: 'Betrag', type: 'money', value: '', required: true, min: 0, hint: 'immer positiv eingeben' },
-      { name: 'date', label: 'Datum', type: 'date', value: todayISO() },
+      { name: 'kind', label: 'Art', type: 'select', options: [{ value: 'expense', label: 'Ausgabe' }, { value: 'income', label: 'Einnahme' }], value: prefill?.kind || 'expense' },
+      { name: 'amount', label: 'Betrag', type: 'money', value: prefill?.amount || '', required: true, min: 0, hint: 'immer positiv eingeben' },
+      { name: 'date', label: 'Datum', type: 'date', value: prefill?.date || todayISO() },
       {
         name: 'accountId', label: 'Konto', type: 'select',
         options: s.accounts.length ? s.accounts.map((a) => ({ value: a.id, label: a.name })) : [{ value: '', label: '— kein Konto —' }],
         value: s.accounts[0]?.id || '',
       },
-      { name: 'category', label: 'Kategorie', type: 'select', options: [...new Set([...CATEGORIES.expense, ...CATEGORIES.income])], value: 'Lebensmittel' },
-      { name: 'note', label: 'Notiz', type: 'text', value: '', placeholder: 'optional' },
+      { name: 'category', label: 'Kategorie', type: 'select', options: [...new Set([...CATEGORIES.expense, ...CATEGORIES.income])], value: prefill?.category || 'Lebensmittel' },
+      { name: 'note', label: 'Notiz', type: 'text', value: prefill?.note || '', placeholder: 'optional' },
     ],
   });
   if (!values) return;

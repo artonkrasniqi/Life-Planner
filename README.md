@@ -2,7 +2,9 @@
 
 Interaktiver Life-Planner im HUD-Stil: **Termine, To-dos, Finanzen, Schulden und Whoop-Daten** (Garmin vorbereitet) in einer einzigen Kommandozentrale.
 
-Keine Abhängigkeiten, kein Build-Schritt, kein Server. Alle Daten bleiben lokal im Browser (`localStorage`).
+Ganz oben liegt eine **Schnellnotizzeile**, die selbst erkennt, was aus dem Getippten werden soll — Termin, Aufgabe, Buchung, Schuld oder Ratenzahlung.
+
+Keine Abhängigkeiten, kein Build-Schritt, kein Server. Alle Daten bleiben lokal im Browser (`localStorage`). Als PWA installierbar und offlinefähig.
 
 ---
 
@@ -21,9 +23,90 @@ python3 -m http.server 5173
 ```
 
 > **Hinweis:** Ein lokaler Server ist nötig, weil die App ES-Module benutzt — ein direkter Doppelklick auf `index.html` (`file://`) wird vom Browser blockiert.
-> Für eine dauerhafte URL ist ein GitHub-Pages-Workflow enthalten (`.github/workflows/pages.yml`): In den Repo-Einstellungen unter *Pages* als Quelle **GitHub Actions** wählen, dann ist die App unter `https://artonkrasniqi.github.io/Life-Planner/` erreichbar.
+> Für eine dauerhafte URL und die Nutzung am Handy: siehe **[Auf dem Handy](#auf-dem-handy)**.
 
 Beim ersten Start fragt die App, ob ein Demo-Datensatz geladen werden soll (Termine, 5 Monate Buchungen, 4 Schuldenposten, 60 Tage Whoop-Werte). Löschbar unter **System → Alles löschen**.
+
+---
+
+## Auf dem Handy
+
+Drei Wege, je nachdem wie dauerhaft es sein soll.
+
+### 1. Als App installieren (empfohlen)
+
+Sobald die Seite unter einer `https://`-Adresse liegt — etwa über GitHub Pages —, lässt sie sich wie eine native App installieren:
+
+* **Android / Chrome:** Seite öffnen → Menü `⋮` → *App installieren* (oder der Einblender unten)
+* **iPhone / Safari:** Seite öffnen → Teilen-Symbol → *Zum Home-Bildschirm*
+
+Danach startet sie im Vollbild ohne Browserleiste, mit eigenem Icon — und **funktioniert offline**, weil ein Service Worker die App zwischenspeichert. Ohne Netz startet sie genauso; sie holt sich Aktualisierungen beim nächsten Start mit Verbindung.
+
+GitHub Pages einschalten: Repo → *Settings* → *Pages* → unter *Source* **GitHub Actions** wählen. Der Workflow liegt schon bei; nach dem nächsten Push auf `main` ist die App unter `https://artonkrasniqi.github.io/Life-Planner/` erreichbar.
+
+### 2. Schnell aus dem Heimnetz testen
+
+Rechner und Handy im selben WLAN:
+
+```bash
+npx serve . -l 5173        # oder: python3 -m http.server 5173 --bind 0.0.0.0
+ipconfig getifaddr en0     # macOS · Linux: hostname -I
+```
+
+Am Handy `http://<IP-des-Rechners>:5173` aufrufen. Zum Ausprobieren reicht das — installieren und offline nutzen geht so allerdings nicht, dafür braucht es `https`.
+
+### 3. Wichtig zu den Daten
+
+Der Speicher hängt am jeweiligen Browser: **Handy und Rechner führen getrennte Datenbestände.** Es gibt keine Synchronisierung — das ist der Preis dafür, dass nichts das Gerät verlässt.
+
+Zum Umziehen oder Abgleichen: **System → Backup exportieren** auf dem einen Gerät, die JSON-Datei aufs andere schieben (AirDrop, Mail, Cloud) und dort **Backup einspielen**. Das ersetzt den kompletten Bestand des Zielgeräts.
+
+Praktischer Ansatz: ein Gerät als Hauptgerät führen und das andere per Backup nachziehen.
+
+---
+
+## Schnellnotizzeile
+
+Die Zeile unter der Kopfleiste ist für alles zuständig. Tippen, Vorschau prüfen, Enter.
+
+```
+Zahnarzt übermorgen 10:30              →  Termin, Mi 12. Aug 10:30, 60 min, Gesundheit
+Wocheneinkauf 82,40 € bezahlt          →  Buchung, −82,40 €, Lebensmittel
+Steuerunterlagen sortieren !! #admin   →  Aufgabe, Priorität hoch, #admin
+3000 € bei der Sparkasse 4,9 % Rate 90 →  Schuld, Sparkasse, 4,90 % p. a., 90 €/Monat
+Rate Autokredit 420 € bezahlt          →  Zahlung auf den bestehenden Autokredit
+Mama anrufen                           →  Aufgabe
+```
+
+**Die Vorschau erscheint vor dem Anlegen** und zeigt jedes erkannte Feld. Liegt die Zuordnung daneben, genügt ein Klick auf einen anderen Typ (oder `Tab`) — nichts wird ungefragt angelegt.
+
+### Woran der Typ erkannt wird
+
+| Signal | Wird zu |
+|---|---|
+| Uhrzeit, Dauer, Wörter wie *Termin, Meeting, Arzt, Training* | **Termin** |
+| Betrag mit *bezahlt, gekauft, überwiesen, Gehalt, Miete* … | **Buchung** (Einnahme/Ausgabe automatisch) |
+| Zinssatz oder Monatsrate, *Kredit, geliehen, schulde, Kreditkarte* | **Schuld** |
+| Betrag + Name einer bereits erfassten Schuld + *Rate/bezahlt* | **Zahlung** auf diese Schuld |
+| alles Übrige | **Aufgabe** |
+
+### Bausteine
+
+| Eingabe | Bedeutung |
+|---|---|
+| `heute`, `morgen`, `übermorgen`, `Freitag`, `nächsten Dienstag`, `in 3 Tagen`, `nächste Woche`, `am Wochenende`, `15.09.`, `2026-09-15`, `am 22.` | Datum |
+| `10:30`, `14 Uhr`, `früh`, `mittags`, `nachmittags`, `abends` | Uhrzeit |
+| `für 90 min`, `2 Stunden` | Dauer |
+| `82,40 €`, `3000 EUR` | Betrag |
+| `4,9 %`, `Zins 3,4` | Zinssatz |
+| `Rate 90` | Monatsrate |
+| `!` / `!!` / `!!!` | Priorität niedrig / hoch / kritisch |
+| `#tag` | Tag |
+| `termin:`, `aufgabe:`, `buchung:`, `einnahme:`, `schuld:` | Typ erzwingen |
+
+Maßeinheiten bleiben unangetastet: `10 km Lauf morgen früh` wird ein Sporttermin und behält die Distanz im Titel.
+
+Tastatur: `/` fokussiert die Zeile, `Enter` legt an, `⇧Enter` öffnet den vollen Dialog mit vorbelegten Feldern, `Tab` wechselt den Typ, `Esc` bricht ab.
 
 ---
 
@@ -31,6 +114,7 @@ Beim ersten Start fragt die App, ob ein Demo-Datensatz geladen werden soll (Term
 
 | Ansicht | Inhalt |
 |---|---|
+| **Schnellnotiz** | Eine Zeile für alles — erkennt selbst, was daraus wird (siehe oben) |
 | **Zentrale** | Arc-Reactor mit „Systemintegrität“ (Score aus Aufgaben, Finanzen, Schulden, Körper), nächster Termin, Cashflow, Agenda, Prioritäten, Vitalwerte |
 | **Termine** | Monatsraster + Tagesagenda, Kategorien mit Farbcodierung, Dauer, Ort, Notizen. Doppelklick auf einen Tag legt direkt einen Termin an |
 | **Aufgaben** | Prioritäten, Fälligkeiten, Tags, Filter, Auslastungsstatistik, Schnellerfassung mit Kurzsyntax |
@@ -53,9 +137,9 @@ Ein Klick auf das Auge-Symbol blendet **alle Schuldenbeträge** aus — gleichze
 
 ---
 
-## Kurzsyntax für Aufgaben
+## Kurzsyntax im Aufgaben-Modul
 
-Im Schnellerfassungsfeld direkt lostippen:
+Zusätzlich zur globalen Schnellnotizzeile hat die Aufgaben-Ansicht ein eigenes Erfassungsfeld, das immer eine Aufgabe anlegt — praktisch, wenn man mehrere hintereinander eintippt:
 
 ```
 Steuer abgeben !!! @morgen #finanzen #admin
@@ -76,6 +160,7 @@ Steuer abgeben !!! @morgen #finanzen #admin
 
 | Taste | Funktion |
 |---|---|
+| `/` | Schnellnotizzeile fokussieren |
 | `1` … `7` | Ansicht wechseln |
 | `N` | Neuer Eintrag in der aktuellen Ansicht |
 | `A` | Schulden ein-/ausblenden |
@@ -115,16 +200,21 @@ Praktische Konsequenz: Die Daten hängen an Browser **und** Profil. Für Backups
 ## Projektstruktur
 
 ```
-index.html               Grundgerüst (Topbar, Rail, View, Modal-Root)
+index.html               Grundgerüst (Topbar, Schnellnotiz, Rail, View, Modal-Root)
+manifest.webmanifest     PWA-Manifest (Installation auf dem Handy)
+sw.js                    Service Worker (Offline-Betrieb)
+icons/                   App-Icons
 styles/main.css          Komplettes HUD-Design
 src/
   main.js                Boot-Sequenz, Router, Navigation, Tastenkürzel
   store.js               Zustand, Persistenz, Pub/Sub, Domänenaktionen
+  quickparse.js          Freitext-Erkennung für die Schnellnotizzeile
   util.js                DOM-Helfer, Datum, Formatierung, Icons, CSV-Parser
   charts.js              Canvas-Diagramme: Linie, Balken, Donut, Gauge, Sparkline
   seed.js                Demo-Datensatz
   nav.js                 Vermittler für Navigation/Neurendern
   ui/
+    quickbar.js          Schnellnotizzeile mit Live-Vorschau
     widgets.js           Panel, KPI, Fortschrittsbalken, Chips, Auge-Button
     modal.js             Generischer Formular-Dialog + Bestätigung
     reactor.js           Animierter Arc-Reactor (SVG)

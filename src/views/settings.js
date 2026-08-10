@@ -9,11 +9,22 @@ import { confirmModal } from '../ui/modal.js';
 import { buildSeed } from '../seed.js';
 
 const SHORTCUTS = [
-  ['1 … 6', 'Ansicht wechseln'],
+  ['/', 'Schnellnotizzeile fokussieren'],
+  ['1 … 7', 'Ansicht wechseln'],
   ['N', 'Neuer Eintrag in der aktuellen Ansicht'],
   ['A', 'Schulden ein-/ausblenden (Auge)'],
   ['T', 'Zum heutigen Tag springen'],
   ['Esc', 'Dialog schließen'],
+];
+
+const QUICK_SYNTAX = [
+  ['morgen · Freitag · 15.09. · in 3 Tagen', 'Datum'],
+  ['10:30 · 14 Uhr · abends · früh', 'Uhrzeit'],
+  ['82,40 € · 3000 EUR', 'Betrag → Buchung'],
+  ['4,9 % · Rate 90', 'Zinssatz & Rate → Schuld'],
+  ['! · !! · !!!', 'Priorität'],
+  ['#tag', 'Tag'],
+  ['termin: · schuld: · buchung:', 'Typ erzwingen'],
 ];
 
 export function render() {
@@ -147,6 +158,16 @@ export function render() {
     )),
   );
 
+  /* ---------- Schnellnotiz ---------- */
+  const syntaxPanel = panel({ title: 'Schnellnotiz', sub: 'Was die Zeile oben erkennt' },
+    h('div', { class: 'panel__sub', style: { textTransform: 'none', letterSpacing: '.02em', lineHeight: '1.6' } },
+      'Einfach lostippen — der Typ ergibt sich aus dem Text und lässt sich in der Vorschau mit einem Klick korrigieren.'),
+    ...QUICK_SYNTAX.map(([k, v]) => h('div', { class: 'row', style: { justifyContent: 'space-between', borderBottom: '1px solid var(--line)', paddingBottom: '7px', gap: '14px' } },
+      h('code', { style: { fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--cyan-2)' } }, k),
+      h('span', { style: { fontSize: '12px', color: 'var(--muted)', textAlign: 'right', flex: 'none' } }, v),
+    )),
+  );
+
   /* ---------- Über ---------- */
   const aboutPanel = panel({ title: 'Über', sub: 'L.I.F.E. OS' },
     h('div', { class: 'panel__sub', style: { textTransform: 'none', letterSpacing: '.02em', lineHeight: '1.7' } },
@@ -162,7 +183,7 @@ export function render() {
 
   frag.appendChild(h('div', { class: 'grid grid--main' },
     h('div', { class: 'stack' }, profilePanel, backupPanel, dataPanel),
-    h('div', { class: 'stack' }, keysPanel, aboutPanel),
+    h('div', { class: 'stack' }, syntaxPanel, keysPanel, aboutPanel),
   ));
 
   return frag;
