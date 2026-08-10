@@ -2,7 +2,9 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - claude/life-planner-dashboard-wq41o1
   workflow_dispatch:
 
 permissions:
@@ -22,9 +24,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # Nur die Anwendung veröffentlichen — nicht .git und nicht die Workflows.
+      - name: Seite zusammenstellen
+        run: |
+          mkdir -p _site
+          cp index.html manifest.webmanifest sw.js _site/
+          cp -r styles src icons _site/
+          cp README.md _site/ || true
+
+      # enablement schaltet Pages selbst ein — spart den Weg über die
+      # Repo-Einstellungen. Bei privaten Repos ohne bezahlten Plan
+      # schlägt dieser Schritt fehl; dann muss das Repo öffentlich sein.
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4
