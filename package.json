@@ -1,0 +1,13 @@
+{
+  "name": "life-planner",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interaktiver Life-Planner im Iron-Man-HUD-Stil: Termine, To-dos, Finanzen, Schulden, Whoop-/Garmin-Daten.",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve . -l 5173",
+    "dev": "npx --yes serve . -l 5173"
+  },
+  "keywords": ["life-planner", "dashboard", "hud", "whoop", "garmin", "finance"],
+  "license": "MIT"
+}

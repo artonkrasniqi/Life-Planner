@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>L.I.F.E. OS — Life Planner</title>
+<meta name="theme-color" content="#04070d" />
+<meta name="description" content="Interaktiver Life-Planner: Termine, To-dos, Finanzen, Schulden und Whoop-/Garmin-Daten in einem HUD." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%2304070d'/%3E%3Ccircle cx='16' cy='16' r='11' fill='none' stroke='%233ad7ff' stroke-width='1.5'/%3E%3Ccircle cx='16' cy='16' r='6' fill='none' stroke='%237ceaff' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2.5' fill='%23dff7ff'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="./styles/main.css" />
+</head>
+<body>
+
+<!-- Boot-Sequenz -->
+<div id="boot" class="boot" aria-hidden="true">
+  <div class="boot__inner">
+    <div class="boot__reactor" id="boot-reactor"></div>
+    <div class="boot__title">L.I.F.E.&nbsp;OS</div>
+    <div class="boot__sub">Life Integrated Framework&nbsp;/&nbsp;Execution</div>
+    <pre class="boot__log" id="boot-log"></pre>
+    <div class="boot__bar"><span id="boot-bar-fill"></span></div>
+    <div class="boot__skip">Klicken zum Überspringen</div>
+  </div>
+</div>
+
+<div id="app" class="app">
+  <header id="topbar" class="topbar"></header>
+  <nav id="rail" class="rail" aria-label="Hauptnavigation"></nav>
+  <main id="view" class="view" tabindex="-1"></main>
+</div>
+
+<div id="modal-root"></div>
+<div id="toast-root" class="toast-root" aria-live="polite"></div>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,415 @@
+/* ============================================================
+   store.js — Zustand, Persistenz (localStorage), Pub/Sub
+   ============================================================ */
+
+import { uid, todayISO } from './util.js';
+
+const KEY = 'life-os:state:v1';
+const SCHEMA = 1;
+
+export const CATEGORIES = {
+  event: ['Arbeit', 'Privat', 'Sport', 'Gesundheit', 'Familie', 'Finanzen', 'Reise', 'Sonstiges'],
+  income: ['Gehalt', 'Nebenjob', 'Rückzahlung', 'Verkauf', 'Zinsen', 'Sonstiges'],
+  expense: ['Miete', 'Lebensmittel', 'Transport', 'Abos', 'Freizeit', 'Gesundheit', 'Shopping', 'Versicherung', 'Schuldenrate', 'Sonstiges'],
+  debt: ['Kredit', 'Kreditkarte', 'Privat', 'Studium', 'Auto', 'Dispo', 'Sonstiges'],
+};
+
+export const PRIORITIES = [
+  { id: 'critical', label: 'Kritisch', pill: 'pill--red', rank: 0 },
+  { id: 'high', label: 'Hoch', pill: 'pill--gold', rank: 1 },
+  { id: 'normal', label: 'Normal', pill: 'pill--cyan', rank: 2 },
+  { id: 'low', label: 'Niedrig', pill: 'pill--muted', rank: 3 },
+];
+
+export function priority(id) {
+  return PRIORITIES.find((p) => p.id === id) || PRIORITIES[2];
+}
+
+function emptyState() {
+  return {
+    schema: SCHEMA,
+    profile: { name: 'Operator', currency: 'EUR', monthlyIncomeTarget: 0 },
+    ui: { debtsHidden: true, view: 'dashboard' },
+    events: [],
+    todos: [],
+    accounts: [],
+    transactions: [],
+    budgets: {},
+    debts: [],
+    bio: [],
+    integrations: {
+      whoop: { connected: false, lastSync: null, note: '' },
+      garmin: { connected: false, lastSync: null, note: '' },
+    },
+    meta: { created: todayISO(), seeded: false },
+  };
+}
+
+/* ---------- Persistenz ---------- */
+
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    return migrate(data);
+  } catch (e) {
+    console.warn('[L.I.F.E. OS] Konnte Zustand nicht laden:', e);
+    return null;
+  }
+}
+
+function migrate(data) {
+  const base = emptyState();
+  const merged = { ...base, ...data };
+  // Verschachtelte Defaults sicherstellen
+  merged.profile = { ...base.profile, ...(data.profile || {}) };
+  merged.ui = { ...base.ui, ...(data.ui || {}) };
+  merged.integrations = {
+    whoop: { ...base.integrations.whoop, ...(data.integrations?.whoop || {}) },
+    garmin: { ...base.integrations.garmin, ...(data.integrations?.garmin || {}) },
+  };
+  merged.meta = { ...base.meta, ...(data.meta || {}) };
+  for (const k of ['events', 'todos', 'accounts', 'transactions', 'debts', 'bio']) {
+    if (!Array.isArray(merged[k])) merged[k] = [];
+  }
+  if (typeof merged.budgets !== 'object' || !merged.budgets) merged.budgets = {};
+  merged.schema = SCHEMA;
+  return merged;
+}
+
+let state = load() || emptyState();
+const listeners = new Set();
+let saveTimer = null;
+
+function persist() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try {
+      localStorage.setItem(KEY, JSON.stringify(state));
+    } catch (e) {
+      console.error('[L.I.F.E. OS] Speichern fehlgeschlagen:', e);
+    }
+  }, 120);
+}
+
+function emit() {
+  for (const fn of listeners) fn(state);
+}
+
+/* ---------- Öffentliche API ---------- */
+
+export const store = {
+  get state() { return state; },
+
+  subscribe(fn) {
+    listeners.add(fn);
+    return () => listeners.delete(fn);
+  },
+
+  /** Mutiert den Zustand, speichert und benachrichtigt alle Views. */
+  update(mutator) {
+    mutator(state);
+    persist();
+    emit();
+  },
+
+  /** Ersetzt den kompletten Zustand (Import / Reset). */
+  replace(next) {
+    state = migrate(next);
+    persist();
+    emit();
+  },
+
+  reset() {
+    state = emptyState();
+    persist();
+    emit();
+  },
+
+  export() {
+    return JSON.stringify({ ...state, exportedAt: new Date().toISOString() }, null, 2);
+  },
+};
+
+/* ---------- Aktionen: Termine ---------- */
+
+export const events = {
+  add(e) {
+    store.update((s) => s.events.push({ id: uid(), title: '', date: todayISO(), durationMin: 60, category: 'Privat', location: '', notes: '', done: false, ...e }));
+  },
+  patch(id, changes) {
+    store.update((s) => {
+      const x = s.events.find((v) => v.id === id);
+      if (x) Object.assign(x, changes);
+    });
+  },
+  remove(id) {
+    store.update((s) => { s.events = s.events.filter((v) => v.id !== id); });
+  },
+  sorted() {
+    return [...state.events].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  },
+  onDay(iso) {
+    return events.sorted().filter((e) => String(e.date).slice(0, 10) === iso);
+  },
+  upcoming(limit = 5) {
+    const now = todayISO();
+    return events.sorted().filter((e) => String(e.date).slice(0, 10) >= now && !e.done).slice(0, limit);
+  },
+};
+
+/* ---------- Aktionen: To-dos ---------- */
+
+export const todos = {
+  add(t) {
+    store.update((s) => s.todos.unshift({
+      id: uid(), title: '', notes: '', priority: 'normal', due: '', tags: [],
+      done: false, createdAt: new Date().toISOString(), completedAt: null, ...t,
+    }));
+  },
+  patch(id, changes) {
+    store.update((s) => {
+      const x = s.todos.find((v) => v.id === id);
+      if (x) Object.assign(x, changes);
+    });
+  },
+  toggle(id) {
+    store.update((s) => {
+      const x = s.todos.find((v) => v.id === id);
+      if (!x) return;
+      x.done = !x.done;
+      x.completedAt = x.done ? new Date().toISOString() : null;
+    });
+  },
+  remove(id) {
+    store.update((s) => { s.todos = s.todos.filter((v) => v.id !== id); });
+  },
+  open() { return state.todos.filter((t) => !t.done); },
+  overdue() {
+    const now = todayISO();
+    return todos.open().filter((t) => t.due && t.due < now);
+  },
+  dueToday() {
+    const now = todayISO();
+    return todos.open().filter((t) => t.due === now);
+  },
+  sortedOpen() {
+    return [...todos.open()].sort((a, b) => {
+      const pr = priority(a.priority).rank - priority(b.priority).rank;
+      if (pr !== 0) return pr;
+      if (a.due && b.due) return a.due.localeCompare(b.due);
+      if (a.due) return -1;
+      if (b.due) return 1;
+      return 0;
+    });
+  },
+};
+
+/* ---------- Aktionen: Finanzen ---------- */
+
+export const finance = {
+  addAccount(a) {
+    store.update((s) => s.accounts.push({ id: uid(), name: 'Konto', type: 'Giro', balance: 0, ...a }));
+  },
+  patchAccount(id, changes) {
+    store.update((s) => {
+      const x = s.accounts.find((v) => v.id === id);
+      if (x) Object.assign(x, changes);
+    });
+  },
+  removeAccount(id) {
+    store.update((s) => {
+      s.accounts = s.accounts.filter((v) => v.id !== id);
+      s.transactions = s.transactions.map((t) => (t.accountId === id ? { ...t, accountId: null } : t));
+    });
+  },
+  addTx(t) {
+    store.update((s) => {
+      const tx = { id: uid(), date: todayISO(), amount: 0, category: 'Sonstiges', note: '', accountId: s.accounts[0]?.id || null, ...t };
+      s.transactions.push(tx);
+      const acc = s.accounts.find((a) => a.id === tx.accountId);
+      if (acc) acc.balance = Number(acc.balance || 0) + Number(tx.amount || 0);
+    });
+  },
+  removeTx(id) {
+    store.update((s) => {
+      const tx = s.transactions.find((v) => v.id === id);
+      if (tx) {
+        const acc = s.accounts.find((a) => a.id === tx.accountId);
+        if (acc) acc.balance = Number(acc.balance || 0) - Number(tx.amount || 0);
+      }
+      s.transactions = s.transactions.filter((v) => v.id !== id);
+    });
+  },
+  setBudget(cat, limit) {
+    store.update((s) => {
+      if (!limit) delete s.budgets[cat];
+      else s.budgets[cat] = Number(limit);
+    });
+  },
+  inMonth(mk) {
+    return state.transactions.filter((t) => String(t.date).slice(0, 7) === mk);
+  },
+  netWorth() {
+    const assets = state.accounts.reduce((a, b) => a + Number(b.balance || 0), 0);
+    const debt = state.debts.reduce((a, b) => a + Number(b.remaining || 0), 0);
+    return assets - debt;
+  },
+};
+
+/* ---------- Aktionen: Schulden ---------- */
+
+export const debts = {
+  add(d) {
+    store.update((s) => s.debts.push({
+      id: uid(), creditor: 'Gläubiger', type: 'Kredit', principal: 0, remaining: 0,
+      rate: 0, minPayment: 0, startDate: todayISO(), payments: [], note: '', ...d,
+    }));
+  },
+  patch(id, changes) {
+    store.update((s) => {
+      const x = s.debts.find((v) => v.id === id);
+      if (x) Object.assign(x, changes);
+    });
+  },
+  remove(id) {
+    store.update((s) => { s.debts = s.debts.filter((v) => v.id !== id); });
+  },
+  /** Zahlung erfassen; optional als Transaktion in den Finanzen buchen. */
+  pay(id, amount, date, alsoBook = true) {
+    store.update((s) => {
+      const d = s.debts.find((v) => v.id === id);
+      if (!d) return;
+      const amt = Math.max(0, Number(amount) || 0);
+      d.payments = d.payments || [];
+      d.payments.push({ date: date || todayISO(), amount: amt });
+      d.remaining = Math.max(0, Number(d.remaining || 0) - amt);
+      if (alsoBook) {
+        const tx = { id: uid(), date: date || todayISO(), amount: -amt, category: 'Schuldenrate', note: `Rate: ${d.creditor}`, accountId: s.accounts[0]?.id || null, debtId: d.id };
+        s.transactions.push(tx);
+        const acc = s.accounts.find((a) => a.id === tx.accountId);
+        if (acc) acc.balance = Number(acc.balance || 0) - amt;
+      }
+    });
+  },
+  total() { return state.debts.reduce((a, b) => a + Number(b.remaining || 0), 0); },
+  totalPrincipal() { return state.debts.reduce((a, b) => a + Number(b.principal || 0), 0); },
+  monthlyLoad() { return state.debts.reduce((a, b) => a + Number(b.minPayment || 0), 0); },
+  toggleHidden() {
+    store.update((s) => { s.ui.debtsHidden = !s.ui.debtsHidden; });
+  },
+  get hidden() { return !!state.ui.debtsHidden; },
+};
+
+/** Restlaufzeit in Monaten (Annuität). Infinity = Rate deckt Zinsen nicht. */
+export function payoffMonths(remaining, annualRatePct, monthlyPayment) {
+  const P = Number(remaining) || 0;
+  const M = Number(monthlyPayment) || 0;
+  const i = (Number(annualRatePct) || 0) / 100 / 12;
+  if (P <= 0) return 0;
+  if (M <= 0) return Infinity;
+  if (i === 0) return Math.ceil(P / M);
+  if (M <= P * i) return Infinity;
+  return Math.ceil(-Math.log(1 - (P * i) / M) / Math.log(1 + i));
+}
+
+/** Gesamte verbleibende Zinskosten bei aktueller Rate. */
+export function totalInterest(remaining, annualRatePct, monthlyPayment) {
+  const n = payoffMonths(remaining, annualRatePct, monthlyPayment);
+  if (!isFinite(n)) return Infinity;
+  return Math.max(0, n * (Number(monthlyPayment) || 0) - (Number(remaining) || 0));
+}
+
+/* ---------- Aktionen: Biometrie (Whoop / Garmin) ---------- */
+
+export const bio = {
+  /** Fügt einen Tageseintrag hinzu oder aktualisiert ihn (Schlüssel = Datum). */
+  upsert(entry) {
+    store.update((s) => {
+      const date = String(entry.date).slice(0, 10);
+      const existing = s.bio.find((b) => b.date === date);
+      if (existing) Object.assign(existing, { ...entry, date });
+      else s.bio.push({ id: uid(), source: 'manual', ...entry, date });
+      s.bio.sort((a, b) => a.date.localeCompare(b.date));
+    });
+  },
+  upsertMany(entries, source) {
+    store.update((s) => {
+      for (const e of entries) {
+        const date = String(e.date).slice(0, 10);
+        if (!date) continue;
+        const existing = s.bio.find((b) => b.date === date);
+        const clean = Object.fromEntries(Object.entries(e).filter(([, v]) => v !== null && v !== undefined && v !== ''));
+        const incoming = source || e.source || 'manual';
+        if (existing) {
+          // Stammen die Werte eines Tages aus mehreren Geräten, bleibt das
+          // sichtbar: "whoop+garmin".
+          const known = String(existing.source || '').split('+').filter(Boolean);
+          const mergedSource = known.includes(incoming) ? existing.source : [...known, incoming].join('+');
+          Object.assign(existing, clean, { date, source: mergedSource || incoming });
+        } else {
+          s.bio.push({ id: uid(), source: incoming, ...clean, date });
+        }
+      }
+      s.bio.sort((a, b) => a.date.localeCompare(b.date));
+      if (source && s.integrations[source]) {
+        s.integrations[source].lastSync = new Date().toISOString();
+      }
+    });
+  },
+  remove(date) {
+    store.update((s) => { s.bio = s.bio.filter((b) => b.date !== date); });
+  },
+  sorted() { return [...state.bio].sort((a, b) => a.date.localeCompare(b.date)); },
+  latest() { return bio.sorted().slice(-1)[0] || null; },
+  range(days) {
+    const all = bio.sorted();
+    return all.slice(-days);
+  },
+  byDate(iso) { return state.bio.find((b) => b.date === iso) || null; },
+};
+
+/* ---------- Abgeleitete Kennzahl: Systemintegrität ---------- */
+
+/**
+ * "Systemintegrität" — gewichteter Score aus vier Domänen.
+ * Nur Domänen mit Daten fließen ein.
+ */
+export function systemIntegrity() {
+  const parts = [];
+
+  // 1. Aufgaben: Anteil nicht überfälliger offener Aufgaben
+  const open = todos.open().length;
+  const over = todos.overdue().length;
+  if (state.todos.length > 0) {
+    const score = open === 0 ? 100 : Math.max(0, 100 - (over / Math.max(1, open)) * 100 - Math.min(20, open * 1.2));
+    parts.push({ key: 'Aufgaben', score });
+  }
+
+  // 2. Finanzen: Cashflow des laufenden Monats
+  const mk = todayISO().slice(0, 7);
+  const tx = finance.inMonth(mk);
+  if (tx.length > 0) {
+    const inc = tx.filter((t) => t.amount > 0).reduce((a, b) => a + b.amount, 0);
+    const exp = -tx.filter((t) => t.amount < 0).reduce((a, b) => a + b.amount, 0);
+    const ratio = inc > 0 ? (inc - exp) / inc : (exp > 0 ? -1 : 0);
+    parts.push({ key: 'Finanzen', score: Math.max(0, Math.min(100, 50 + ratio * 125)) });
+  }
+
+  // 3. Schulden: Tilgungsfortschritt
+  const P = debts.totalPrincipal();
+  if (P > 0) {
+    parts.push({ key: 'Schulden', score: Math.max(0, Math.min(100, (1 - debts.total() / P) * 100)) });
+  }
+
+  // 4. Körper: Recovery des letzten Eintrags
+  const last = bio.latest();
+  if (last && last.recovery != null) {
+    parts.push({ key: 'Körper', score: Math.max(0, Math.min(100, Number(last.recovery))) });
+  }
+
+  if (!parts.length) return { score: 0, parts: [] };
+  const score = Math.round(parts.reduce((a, b) => a + b.score, 0) / parts.length);
+  return { score, parts: parts.map((p) => ({ ...p, score: Math.round(p.score) })) };
+}
