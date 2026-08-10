@@ -171,7 +171,7 @@ Tastatur: `/` fokussiert die Zeile, `Enter` legt an, `⇧Enter` öffnet den voll
 |---|---|
 | **Schnellnotiz** | Eine Zeile für alles — erkennt selbst, was daraus wird (siehe oben) |
 | **Zentrale** | Arc-Reactor mit „Systemintegrität“ (Score aus Aufgaben, Finanzen, Schulden, Körper), nächster Termin, Cashflow, Agenda, Prioritäten, Vitalwerte |
-| **Termine** | Monatsraster + Tagesagenda, Kategorien mit Farbcodierung, Dauer, Ort, Notizen. Doppelklick auf einen Tag legt direkt einen Termin an |
+| **Termine** | Google-Kalender-Spiegelung, Monatsraster + Tagesagenda, Kategorien mit Farbcodierung, Dauer, Ort, Notizen. Doppelklick auf einen Tag legt direkt einen Termin an |
 | **Aufgaben** | Prioritäten, Fälligkeiten, Tags, Filter, Auslastungsstatistik, Schnellerfassung mit Kurzsyntax |
 | **Finanzen** | Konten, Buchungen, 12-Monats-Cashflow, Ausgabenstruktur als Donut, Budgets pro Kategorie, Nettovermögen |
 | **Schulden** | Restschuld, Tilgungsfortschritt, Zinskosten, Restlaufzeit, Prognose über 36 Monate, Strategievergleich Avalanche/Snowball — **mit Auge zum Ein- und Ausblenden** |
@@ -226,9 +226,49 @@ Der Ring oben rechts zeigt den Zustand des Abgleichs — ein Klick stößt ihn s
 
 ---
 
-## Whoop-Daten importieren
+## Google Kalender verbinden
 
-**Vitalwerte → Whoop importieren**
+**System → Google Kalender.** Läuft ohne eigenen Server: Google erlaubt Browser-Anwendungen die Anmeldung ohne geheimen Schlüssel.
+
+Einmalige Einrichtung (ca. 10 Minuten):
+
+1. [console.cloud.google.com](https://console.cloud.google.com) → Projekt anlegen
+2. *APIs & Dienste → Bibliothek* → **Google Calendar API** aktivieren
+3. *OAuth-Zustimmungsbildschirm* → **Extern** → dich selbst als **Testnutzer** eintragen
+4. *Anmeldedaten* → **OAuth-Client-ID erstellen** → **Webanwendung**
+5. Bei *Autorisierte JavaScript-Quellen* eintragen: `https://artonkrasniqi.github.io`
+6. Client-ID kopieren, in der App einsetzen, **Verbinden**
+
+Danach wählst du aus, welche Kalender gespiegelt werden, und legst das Zeitfenster fest (Standard: 30 Tage zurück, 120 nach vorn).
+
+**Wie es sich verhält:** Google bleibt die Quelle, die App zeigt die Termine nur an. Was du in Google löschst, verschwindet beim nächsten Abruf auch hier. Ganztägige Termine bleiben datumsfest, Termine mit Uhrzeit werden in die Zeitzone deines Geräts umgerechnet. Die lokale Kennung wird aus der Google-Kennung abgeleitet — zwei Geräte legen denselben Termin also nicht doppelt an.
+
+**Zwei Eigenheiten von Google:** Zugriffstoken leben eine Stunde, danach holt die App still ein neues (gelegentlich erscheint dabei ein Fenster). Und solange dein OAuth-Projekt im Testmodus steht, musst du die Freigabe etwa alle sieben Tage erneuern — willst du das nicht, veröffentliche den Zustimmungsbildschirm und akzeptiere den Hinweis „nicht verifiziert“ bei der Anmeldung.
+
+---
+
+## Whoop automatisch abrufen
+
+**System → Whoop — automatisch.** Whoop verlangt beim Anmelden ein Client-Secret, das nicht in eine öffentliche Web-App gehört. Dafür liegt im Projekt ein winziger Vermittler: `worker/whoop-proxy.js`, lauffähig bei Cloudflare Workers (kostenlos). Er speichert nichts — er ergänzt nur das Secret und reicht die Antwort durch.
+
+1. [developer.whoop.com](https://developer.whoop.com) → App anlegen
+   * Redirect-URI: `https://artonkrasniqi.github.io/Life-Planner/`
+   * Scopes: `read:recovery read:cycles read:sleep read:profile offline`
+2. [dash.cloudflare.com](https://dash.cloudflare.com) → *Workers* → neuer Worker mit dem Inhalt von `worker/whoop-proxy.js`
+3. Dort unter *Settings → Variables* setzen:
+   * `WHOOP_CLIENT_ID`
+   * `WHOOP_CLIENT_SECRET` (als **Secret** anlegen)
+   * `ALLOWED_ORIGIN` = `https://artonkrasniqi.github.io`
+   * `APP_KEY` (optional, damit niemand sonst den Worker mitbenutzt)
+4. Worker-Adresse und Client-ID in der App eintragen → **Mit Whoop verbinden**
+
+Danach holt „Jetzt abrufen“ Recovery, Strain, HRV, Ruhepuls, Schlaf und Kalorien der letzten Tage. Abgelaufene Token erneuert die App selbst.
+
+---
+
+## Whoop-Daten aus einer Datei
+
+Alternative ohne Vermittler — **Vitalwerte → Whoop importieren**
 
 1. **CSV aus dem offiziellen Datenexport** (Whoop-App → *Einstellungen → Datenexport*). Die Datei `physiological_cycles.csv` enthält Recovery, Strain, HRV, Ruhepuls, Schlafdauer, Schlafqualität, Kalorien, SpO₂ und Atemfrequenz — alles wird automatisch zugeordnet.
 2. **JSON aus der Whoop-API v2** (`/v2/recovery`, `/v2/cycle`, `/v2/activity/sleep`). Antworten mehrerer Endpunkte lassen sich nacheinander einspielen und werden pro Tag zusammengeführt.
@@ -284,8 +324,12 @@ src/
     dashboard.js  calendar.js  todos.js  finance.js
     debts.js      bio.js       settings.js
   integrations/
-    whoop.js             CSV-/JSON-Parser + Proxy-Abruf
+    google.js            Google Kalender (Anmeldung im Browser, ohne Secret)
+    whoop.js             CSV/JSON-Parser, OAuth und Abruf über den Vermittler
     garmin.js            CSV-/JSON-Parser + Proxy-Abruf
+    connections.js       Steuerung der Live-Verbindungen
+worker/
+  whoop-proxy.js         Cloudflare Worker, hält das Whoop-Client-Secret
 ```
 
 Kein Framework, kein Bundler, keine Laufzeit-Abhängigkeit. `package.json` enthält nur einen Startbefehl für den lokalen Server.

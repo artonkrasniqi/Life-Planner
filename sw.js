@@ -6,7 +6,7 @@
    die neue Fassung ist beim nächsten Öffnen aktiv.
    ============================================================ */
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `life-os-${VERSION}`;
 
 const ASSETS = [
@@ -37,6 +37,9 @@ const ASSETS = [
   './src/views/bio.js',
   './src/views/settings.js',
   './src/integrations/whoop.js',
+  './src/integrations/google.js',
+  './src/integrations/connections.js',
+  './src/ui/connections-panel.js',
   './src/integrations/garmin.js',
   './icons/icon-192.png',
   './icons/icon-512.png',

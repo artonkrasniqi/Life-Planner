@@ -162,6 +162,113 @@ export async function fetchFromProxy(baseUrl, token, path = 'recovery', params =
   return parseWhoopJSON(await res.text());
 }
 
+/* ============================================================
+   Live-Anbindung über den eigenen Worker (worker/whoop-proxy.js)
+
+   Ablauf: Die App schickt dich zu Whoop, Whoop schickt dich mit einem
+   Code zurück, der Worker tauscht den Code gegen Token (dafür braucht
+   es das Secret) und leitet danach die API-Aufrufe weiter.
+   ============================================================ */
+
+const WHOOP_AUTH_URL = 'https://api.prod.whoop.com/oauth/oauth2/auth';
+export const WHOOP_SCOPES = 'read:recovery read:cycles read:sleep read:profile offline';
+
+function base(cfg) {
+  const b = String(cfg.workerUrl || '').replace(/\/+$/, '');
+  if (!b) throw new Error('Keine Worker-Adresse hinterlegt.');
+  return b;
+}
+
+function headers(cfg, extra = {}) {
+  return { ...(cfg.appKey ? { 'X-App-Key': cfg.appKey } : {}), ...extra };
+}
+
+/** Adresse, zu der die Anmeldung führt. `state` schützt vor Unterschieben. */
+export function buildAuthUrl(cfg, redirectUri, state) {
+  if (!cfg.clientId) throw new Error('Keine Whoop-Client-ID hinterlegt.');
+  const u = new URL(WHOOP_AUTH_URL);
+  u.searchParams.set('client_id', cfg.clientId);
+  u.searchParams.set('redirect_uri', redirectUri);
+  u.searchParams.set('response_type', 'code');
+  u.searchParams.set('scope', WHOOP_SCOPES);
+  u.searchParams.set('state', state);
+  return u.toString();
+}
+
+async function postToken(cfg, body) {
+  const res = await fetch(`${base(cfg)}/token`, {
+    method: 'POST',
+    headers: headers(cfg, { 'Content-Type': 'application/json' }),
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `Der Worker antwortete mit ${res.status}`);
+  if (!data.access_token) throw new Error('Der Worker lieferte kein Zugriffstoken zurück.');
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token || body.refresh_token || '',
+    expiresAt: Date.now() + (Number(data.expires_in || 3600) - 60) * 1000,
+  };
+}
+
+export function exchangeCode(cfg, code, redirectUri) {
+  return postToken(cfg, { code, redirect_uri: redirectUri });
+}
+
+export function refreshTokens(cfg) {
+  if (!cfg.refreshToken) throw new Error('Kein Refresh-Token — bitte neu verbinden.');
+  return postToken(cfg, { refresh_token: cfg.refreshToken });
+}
+
+/** Sorgt dafür, dass ein gültiges Token vorliegt. */
+export async function ensureToken(cfg) {
+  if (cfg.accessToken && cfg.expiresAt && cfg.expiresAt > Date.now()) return null;
+  return refreshTokens(cfg);
+}
+
+async function apiGet(cfg, path, params = {}) {
+  const u = new URL(`${base(cfg)}/api${path}`);
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== null && v !== '') u.searchParams.set(k, v);
+  }
+  const res = await fetch(u, { headers: headers(cfg, { Authorization: `Bearer ${cfg.accessToken}` }), cache: 'no-store' });
+  if (res.status === 401) throw new Error('Whoop-Token abgelehnt — bitte neu verbinden.');
+  const data = await res.json().catch(() => null);
+  if (!res.ok) throw new Error(data?.error || `Whoop antwortete mit ${res.status}`);
+  return data || {};
+}
+
+async function collect(cfg, path, start, end) {
+  const out = [];
+  let nextToken;
+  do {
+    const data = await apiGet(cfg, path, {
+      start: start.toISOString(),
+      end: end.toISOString(),
+      limit: 25,
+      nextToken,
+    });
+    out.push(...(data.records || []));
+    nextToken = data.next_token;
+  } while (nextToken && out.length < 400);
+  return out;
+}
+
+/**
+ * Holt Recovery, Zyklen und Schlaf und führt sie pro Tag zusammen.
+ * @returns {Promise<Array>} Einträge im Bio-Format
+ */
+export async function fetchRange(cfg, days = 30) {
+  const end = new Date();
+  const start = new Date(end.getTime() - days * 86400000);
+  const [recovery, cycles, sleep] = await Promise.all([
+    collect(cfg, '/v2/recovery', start, end),
+    collect(cfg, '/v2/cycle', start, end),
+    collect(cfg, '/v2/activity/sleep', start, end),
+  ]);
+  return parseWhoopJSON({ records: [...recovery, ...cycles, ...sleep] });
+}
+
 /** Erkennt anhand des Dateiinhalts, welcher Parser passt. */
 export function parseAny(name, text) {
   const isJson = /\.json$/i.test(name || '') || String(text).trim().startsWith('{') || String(text).trim().startsWith('[');

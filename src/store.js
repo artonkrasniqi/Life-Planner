@@ -39,8 +39,17 @@ function emptyState() {
     debts: [],
     bio: [],
     integrations: {
-      whoop: { connected: false, lastSync: null, note: '' },
-      garmin: { connected: false, lastSync: null, note: '' },
+      whoop: {
+        connected: false, lastSync: null, lastError: '', note: '',
+        clientId: '', workerUrl: '', appKey: '',
+        accessToken: '', refreshToken: '', expiresAt: 0, autoDays: 30,
+      },
+      garmin: { connected: false, lastSync: null, lastError: '', note: '' },
+      google: {
+        connected: false, lastSync: null, lastError: '',
+        clientId: '', accessToken: '', expiresAt: 0,
+        calendars: [], calendarIds: [], rangePast: 30, rangeFuture: 120,
+      },
     },
     // Verbindungsdaten für den Abgleich — bleiben gerätelokal und
     // werden weder synchronisiert noch in Backups geschrieben.
@@ -88,6 +97,7 @@ function migrate(data) {
   merged.integrations = {
     whoop: { ...base.integrations.whoop, ...(data.integrations?.whoop || {}) },
     garmin: { ...base.integrations.garmin, ...(data.integrations?.garmin || {}) },
+    google: { ...base.integrations.google, ...(data.integrations?.google || {}) },
   };
   merged.sync = { ...base.sync, ...(data.sync || {}) };
   merged.meta = { ...base.meta, ...(data.meta || {}) };
@@ -235,6 +245,51 @@ export const events = {
   upcoming(limit = 5) {
     const now = todayISO();
     return events.sorted().filter((e) => String(e.date).slice(0, 10) >= now && !e.done).slice(0, limit);
+  },
+
+  /**
+   * Spiegelt Termine einer externen Quelle in einem Zeitfenster.
+   * Was in dem Fenster von dieser Quelle stammt und nicht mehr geliefert
+   * wird, verschwindet — so wirkt ein Löschen in Google auch hier.
+   *
+   * Die lokale id wird aus der Fremd-id abgeleitet, damit zwei Geräte
+   * denselben Google-Termin nicht zweimal anlegen und der Abgleich sie
+   * als einen Eintrag erkennt.
+   */
+  syncExternal({ source, calendarId = '', items = [], from, to }) {
+    const key = (extId) => `${source}:${extId}`;
+    const inWindow = (iso) => {
+      const d = String(iso).slice(0, 10);
+      return d >= from && d <= to;
+    };
+    store.update((s) => {
+      const incoming = new Map(items.filter((i) => i.externalId).map((i) => [i.externalId, i]));
+
+      s.events = s.events.filter((e) => {
+        if (e.source !== source) return true;
+        if (calendarId && e.calendarId && e.calendarId !== calendarId) return true;
+        if (!inWindow(e.date)) return true;
+        return incoming.has(e.externalId);
+      });
+
+      for (const e of s.events) {
+        if (e.source !== source) continue;
+        const inc = incoming.get(e.externalId);
+        if (!inc) continue;
+        Object.assign(e, inc, { id: key(inc.externalId) });
+        incoming.delete(inc.externalId);
+      }
+
+      for (const inc of incoming.values()) {
+        s.events.push({ id: key(inc.externalId), notes: '', location: '', done: false, ...inc });
+      }
+    });
+    return items.length;
+  },
+
+  /** Entfernt alle Termine einer Quelle (beim Trennen der Verbindung). */
+  dropExternal(source) {
+    store.update((s) => { s.events = s.events.filter((e) => e.source !== source); });
   },
 };
 

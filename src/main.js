@@ -11,6 +11,7 @@ import { confirmModal } from './ui/modal.js';
 import { buildSeed } from './seed.js';
 import { mountQuickbar, focusQuickbar } from './ui/quickbar.js';
 import { startSync, runSync, onSyncStatus, syncStatus, isConfigured } from './sync/engine.js';
+import { whoopConn } from './integrations/connections.js';
 
 import * as dashboard from './views/dashboard.js';
 import * as calendar from './views/calendar.js';
@@ -333,6 +334,9 @@ async function start() {
     else renderTopbar();
   });
   startSync();
+
+  // Kommt der Browser gerade von der Whoop-Anmeldung zurück?
+  whoopConn.handleRedirect().catch((e) => console.warn('[L.I.F.E. OS] Whoop-Rückkehr:', e));
 
   await boot();
   await firstRun();

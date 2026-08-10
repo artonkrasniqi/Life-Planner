@@ -10,6 +10,7 @@ import { buildSeed } from '../seed.js';
 import { providers, makePairingCode, readPairingCode } from '../sync/providers.js';
 import { runSync, connectSync, disconnectSync, syncStatus } from '../sync/engine.js';
 import { cryptoAvailable } from '../sync/crypto.js';
+import { connectionsPanels } from '../ui/connections-panel.js';
 import { refresh } from '../nav.js';
 
 /* Entwurf der Verbindungsdaten — landet erst beim Verbinden im Zustand,
@@ -177,6 +178,9 @@ export function render() {
   /* ---------- Synchronisierung ---------- */
   const syncPanel = buildSyncPanel();
 
+  /* ---------- Externe Verbindungen ---------- */
+  const [googlePanel, whoopPanel] = connectionsPanels();
+
   /* ---------- Schnellnotiz ---------- */
   const syntaxPanel = panel({ title: 'Schnellnotiz', sub: 'Was die Zeile oben erkennt' },
     h('div', { class: 'panel__sub', style: { textTransform: 'none', letterSpacing: '.02em', lineHeight: '1.6' } },
@@ -201,7 +205,7 @@ export function render() {
   );
 
   frag.appendChild(h('div', { class: 'grid grid--main' },
-    h('div', { class: 'stack' }, syncPanel, profilePanel, backupPanel, dataPanel),
+    h('div', { class: 'stack' }, syncPanel, googlePanel, whoopPanel, profilePanel, backupPanel, dataPanel),
     h('div', { class: 'stack' }, syntaxPanel, keysPanel, aboutPanel),
   ));
 
