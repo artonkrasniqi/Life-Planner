@@ -33,12 +33,11 @@ jobs:
           cp -r styles src icons _site/
           cp README.md _site/ || true
 
-      # enablement schaltet Pages selbst ein — spart den Weg über die
-      # Repo-Einstellungen. Bei privaten Repos ohne bezahlten Plan
-      # schlägt dieser Schritt fehl; dann muss das Repo öffentlich sein.
+      # Kein enablement: true — der Automatik-Token von Actions darf die
+      # Pages-Seite nicht anlegen ("Resource not accessible by integration").
+      # Pages muss einmalig unter Settings → Pages auf "GitHub Actions"
+      # gestellt werden; danach läuft jeder weitere Lauf ohne Zutun durch.
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
