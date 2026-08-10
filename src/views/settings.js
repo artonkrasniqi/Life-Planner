@@ -7,6 +7,22 @@ import { store, debts } from '../store.js';
 import { panel, viewHead, field } from '../ui/widgets.js';
 import { confirmModal } from '../ui/modal.js';
 import { buildSeed } from '../seed.js';
+import { providers, makePairingCode, readPairingCode } from '../sync/providers.js';
+import { runSync, connectSync, disconnectSync, syncStatus } from '../sync/engine.js';
+import { cryptoAvailable } from '../sync/crypto.js';
+import { refresh } from '../nav.js';
+
+/* Entwurf der Verbindungsdaten — landet erst beim Verbinden im Zustand,
+   damit ein halb getipptes Token nicht gespeichert wird. */
+let draft = null;
+function syncDraft() {
+  if (!draft) {
+    const s = store.state.sync;
+    draft = { provider: s.provider, token: s.token, gistId: s.gistId, url: s.url, encrypt: s.encrypt, passphrase: s.passphrase };
+  }
+  return draft;
+}
+export function resetSyncDraft() { draft = null; }
 
 const SHORTCUTS = [
   ['/', 'Schnellnotizzeile fokussieren'],
@@ -158,6 +174,9 @@ export function render() {
     )),
   );
 
+  /* ---------- Synchronisierung ---------- */
+  const syncPanel = buildSyncPanel();
+
   /* ---------- Schnellnotiz ---------- */
   const syntaxPanel = panel({ title: 'Schnellnotiz', sub: 'Was die Zeile oben erkennt' },
     h('div', { class: 'panel__sub', style: { textTransform: 'none', letterSpacing: '.02em', lineHeight: '1.6' } },
@@ -182,9 +201,211 @@ export function render() {
   );
 
   frag.appendChild(h('div', { class: 'grid grid--main' },
-    h('div', { class: 'stack' }, profilePanel, backupPanel, dataPanel),
+    h('div', { class: 'stack' }, syncPanel, profilePanel, backupPanel, dataPanel),
     h('div', { class: 'stack' }, syntaxPanel, keysPanel, aboutPanel),
   ));
 
   return frag;
+}
+
+/* ============================================================
+   Synchronisierung
+   ============================================================ */
+function buildSyncPanel() {
+  const s = store.state;
+  const d = syncDraft();
+  const st = syncStatus();
+  const connected = s.sync.provider !== 'off';
+
+  const STATUS_LOOK = {
+    off: ['pill--muted', 'Aus'],
+    idle: ['pill--green', 'Verbunden'],
+    syncing: ['pill--cyan', 'Abgleich läuft'],
+    error: ['pill--red', 'Fehler'],
+    offline: ['pill--gold', 'Offline'],
+  };
+  const [pillCls, pillTxt] = STATUS_LOOK[st.status] || STATUS_LOOK.off;
+
+  const providerSel = h('select', {
+    class: 'select',
+    onchange: (e) => { d.provider = e.target.value; refresh(); },
+  },
+    h('option', { value: 'off', selected: d.provider === 'off' ? true : null }, 'Aus — nur dieses Gerät'),
+    ...Object.values(providers).map((p) =>
+      h('option', { value: p.id, selected: d.provider === p.id ? true : null }, p.label)),
+  );
+
+  const tokenInput = h('input', {
+    class: 'input', type: 'password', value: d.token, placeholder: 'github_pat_…',
+    dataset: { focusKey: 'sync-token' },
+    autocomplete: 'off',
+    oninput: (e) => { d.token = e.target.value.trim(); },
+  });
+
+  const gistInput = h('input', {
+    class: 'input', type: 'text', value: d.gistId, placeholder: 'wird beim ersten Abgleich angelegt',
+    dataset: { focusKey: 'sync-gist' },
+    oninput: (e) => { d.gistId = e.target.value.trim(); },
+  });
+
+  const urlInput = h('input', {
+    class: 'input', type: 'text', value: d.url, placeholder: 'https://mein-server.example/life-os',
+    dataset: { focusKey: 'sync-url' },
+    oninput: (e) => { d.url = e.target.value.trim(); },
+  });
+
+  const passInput = h('input', {
+    class: 'input', type: 'password', value: d.passphrase, placeholder: 'auf allen Geräten identisch',
+    dataset: { focusKey: 'sync-pass' },
+    autocomplete: 'new-password',
+    oninput: (e) => { d.passphrase = e.target.value; },
+  });
+
+  const encryptToggle = h('label', { class: 'switch' },
+    h('input', {
+      type: 'checkbox', checked: d.encrypt ? true : null,
+      onchange: (e) => { d.encrypt = e.target.checked; refresh(); },
+    }),
+    h('span', { class: 'switch__track' }),
+    h('span', { style: { fontSize: '12px', color: 'var(--muted)' } },
+      d.encrypt ? 'Daten werden verschlüsselt abgelegt' : '⚠ unverschlüsselt'),
+  );
+
+  const autoToggle = h('label', { class: 'switch' },
+    h('input', {
+      type: 'checkbox', checked: s.sync.auto ? true : null,
+      onchange: (e) => store.update((st2) => { st2.sync.auto = e.target.checked; }),
+    }),
+    h('span', { class: 'switch__track' }),
+    h('span', { style: { fontSize: '12px', color: 'var(--muted)' } },
+      s.sync.auto ? 'gleicht selbstständig ab' : 'nur auf Knopfdruck'),
+  );
+
+  const fields = [];
+  if (d.provider === 'gist') {
+    fields.push(
+      field('GitHub-Token', tokenInput, 'Fein abgestuftes Token mit der Berechtigung „Gists: read and write“'),
+      field('Gist-ID', gistInput, 'Auf dem zweiten Gerät dieselbe ID eintragen'),
+    );
+  } else if (d.provider === 'rest') {
+    fields.push(
+      field('Adresse', urlInput, 'GET liefert den Stand, PUT nimmt ihn entgegen'),
+      field('Token (optional)', tokenInput, 'wird als Bearer-Token gesendet'),
+    );
+  }
+  if (d.provider !== 'off') {
+    fields.push(
+      h('div', { class: 'field col-2' },
+        h('span', { class: 'field__label' }, 'Verschlüsselung'),
+        encryptToggle,
+      ),
+      d.encrypt ? field('Kennwort', passInput, 'Ohne dieses Kennwort sind die Daten nicht lesbar — auch nicht für dich') : null,
+    );
+  }
+
+  const actions = [];
+  if (d.provider !== 'off') {
+    actions.push(h('button', {
+      class: 'btn btn--primary',
+      onclick: async () => {
+        const provider = providers[d.provider];
+        const problem = provider.validate(d);
+        if (problem) { toast(problem, 'warn'); return; }
+        if (d.encrypt && !d.passphrase) { toast('Bitte ein Kennwort setzen.', 'warn'); return; }
+        if (d.encrypt && !cryptoAvailable()) { toast('Verschlüsselung braucht https oder localhost.', 'bad'); return; }
+        toast('Verbinde …');
+        const res = await connectSync({ ...d });
+        if (res && res.ok) toast('Verbunden und abgeglichen.', 'good');
+        else if (res) toast(res.error, 'bad');
+      },
+      html: icon('link', 13) + `<span>${connected ? 'Aktualisieren' : 'Verbinden'}</span>`,
+    }));
+  }
+  if (connected) {
+    actions.push(h('button', {
+      class: 'btn', disabled: st.busy ? true : null,
+      onclick: async () => { const r = await runSync('Knopfdruck'); if (r && !r.ok) toast(r.error, 'bad'); },
+      html: icon('refresh', 13) + '<span>Jetzt abgleichen</span>',
+    }));
+    actions.push(h('button', {
+      class: 'btn btn--gold',
+      onclick: async () => {
+        const code = makePairingCode(store.state.sync);
+        try {
+          await navigator.clipboard.writeText(code);
+          toast('Kopplungscode kopiert — enthält das Token, also vorsichtig damit.', 'warn');
+        } catch {
+          await confirmModal({ title: 'Kopplungscode', message: h('code', { style: { wordBreak: 'break-all', fontSize: '11px' } }, code), confirmLabel: 'OK' });
+        }
+      },
+      html: icon('save', 13) + '<span>Kopplungscode</span>',
+    }));
+    actions.push(h('button', {
+      class: 'btn btn--danger',
+      onclick: async () => {
+        const ok = await confirmModal({
+          title: 'Verbindung trennen',
+          message: 'Token und Kennwort werden von diesem Gerät entfernt. Die Daten bleiben lokal und auf der Gegenstelle erhalten.',
+          confirmLabel: 'Trennen', danger: true,
+        });
+        if (!ok) return;
+        disconnectSync();
+        resetSyncDraft();
+        toast('Verbindung getrennt.', 'warn');
+      },
+      html: icon('x', 13) + '<span>Trennen</span>',
+    }));
+  } else {
+    actions.push(h('button', {
+      class: 'btn btn--ghost',
+      onclick: async () => {
+        const code = prompt('Kopplungscode vom ersten Gerät einfügen:');
+        if (!code) return;
+        try {
+          const cfg = readPairingCode(code);
+          draft = { ...syncDraft(), ...cfg };
+          refresh();
+          toast('Code übernommen — jetzt nur noch das Kennwort setzen und verbinden.', 'good');
+        } catch (e) {
+          toast(e.message, 'bad');
+        }
+      },
+      html: icon('upload', 13) + '<span>Kopplungscode einfügen</span>',
+    }));
+  }
+
+  return panel({
+    title: 'Synchronisierung',
+    sub: connected ? providers[s.sync.provider]?.label : 'nicht eingerichtet',
+    tools: h('span', { class: `pill ${pillCls}` }, pillTxt),
+  },
+    h('div', { class: 'panel__sub', style: { textTransform: 'none', letterSpacing: '.02em', lineHeight: '1.6' } },
+      d.provider !== 'off' && providers[d.provider]
+        ? providers[d.provider].hint
+        : 'Ohne Abgleich bleibt jeder Browser für sich. Mit Abgleich teilen sich alle Geräte denselben Stand — verschlüsselt, sodass am Ablageort nur unlesbare Zeichen liegen.'),
+
+    field('Ablageort', providerSel),
+    h('div', { class: 'form-grid' }, ...fields.filter(Boolean)),
+    connected
+      ? h('div', { class: 'field' },
+          h('span', { class: 'field__label' }, 'Automatik'),
+          autoToggle,
+        )
+      : null,
+    h('div', { class: 'row' }, ...actions),
+
+    st.message
+      ? h('div', {
+          style: {
+            fontFamily: 'var(--font-mono)', fontSize: '11px', lineHeight: '1.6',
+            color: st.status === 'error' ? 'var(--red)' : 'var(--muted)',
+            borderLeft: `2px solid ${st.status === 'error' ? 'var(--red)' : 'var(--line-strong)'}`,
+            paddingLeft: '10px',
+          },
+        }, st.message)
+      : null,
+    s.sync.lastSync
+      ? h('div', { class: 'kpi__foot' }, `Letzter Abgleich: ${new Date(s.sync.lastSync).toLocaleString('de-DE')}`)
+      : null,
+  );
 }

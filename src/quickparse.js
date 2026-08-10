@@ -52,8 +52,11 @@ const STRIP_WORDS = {
   debt: ['ich', 'schulde', 'schulden', 'habe', 'mir', 'geliehen', 'leihe', 'noch', 'offen',
     'zins', 'zinsen', 'zinssatz', 'rate', 'p.a.', 'monatlich'],
   payment: ['bezahlt', 'gezahlt', 'überwiesen', 'ueberwiesen', 'abgebucht', 'abbezahlt', 'getilgt', 'rate', 'ich', 'habe', 'auf'],
-  event: ['termin'],
-  todo: ['todo', 'to-do', 'aufgabe', 'ich', 'muss', 'noch', 'sollte'],
+  // "Termin", "Aufgabe" & Co. werden hier bewusst NICHT entfernt: als
+  // Präfix ("termin: …") fängt sie PREFIXES ab, mitten im Satz sind sie
+  // Teil des Titels — "Aufgabe von Gerät A" soll nicht zu "Gerät A" werden.
+  event: [],
+  todo: ['ich', 'muss', 'noch', 'sollte'],
 };
 
 /** Typ-Präfixe für die manuelle Ansage: "termin: …" */

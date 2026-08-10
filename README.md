@@ -4,7 +4,7 @@ Interaktiver Life-Planner im HUD-Stil: **Termine, To-dos, Finanzen, Schulden und
 
 Ganz oben liegt eine **Schnellnotizzeile**, die selbst erkennt, was aus dem Getippten werden soll — Termin, Aufgabe, Buchung, Schuld oder Ratenzahlung.
 
-Keine Abhängigkeiten, kein Build-Schritt, kein Server. Alle Daten bleiben lokal im Browser (`localStorage`). Als PWA installierbar und offlinefähig.
+Keine Abhängigkeiten, kein Build-Schritt. Die Daten liegen lokal im Browser; auf Wunsch gleichen sich mehrere Geräte **Ende-zu-Ende-verschlüsselt** ab. Als App installierbar und offlinefähig.
 
 ---
 
@@ -23,45 +23,100 @@ python3 -m http.server 5173
 ```
 
 > **Hinweis:** Ein lokaler Server ist nötig, weil die App ES-Module benutzt — ein direkter Doppelklick auf `index.html` (`file://`) wird vom Browser blockiert.
-> Für eine dauerhafte URL und die Nutzung am Handy: siehe **[Auf dem Handy](#auf-dem-handy)**.
+> Fürs Handy und eine dauerhafte Adresse: siehe **[Aufs Handy holen](#aufs-handy-holen--in-5-schritten)**.
 
 Beim ersten Start fragt die App, ob ein Demo-Datensatz geladen werden soll (Termine, 5 Monate Buchungen, 4 Schuldenposten, 60 Tage Whoop-Werte). Löschbar unter **System → Alles löschen**.
 
 ---
 
-## Auf dem Handy
+## Aufs Handy holen — in 5 Schritten
 
-Drei Wege, je nachdem wie dauerhaft es sein soll.
+Du brauchst dafür einmalig eine Internet-Adresse für die App. GitHub macht das kostenlos, und das Nötige liegt schon im Projekt.
 
-### 1. Als App installieren (empfohlen)
+**1. Adresse einschalten**
+Geh auf GitHub in dein Repo → oben auf **Settings** → links auf **Pages** → bei *Source* **GitHub Actions** auswählen. Fertig, mehr ist da nicht zu tun.
 
-Sobald die Seite unter einer `https://`-Adresse liegt — etwa über GitHub Pages —, lässt sie sich wie eine native App installieren:
+**2. Kurz warten**
+Nach ein paar Minuten ist die App erreichbar unter:
+`https://artonkrasniqi.github.io/Life-Planner/`
 
-* **Android / Chrome:** Seite öffnen → Menü `⋮` → *App installieren* (oder der Einblender unten)
-* **iPhone / Safari:** Seite öffnen → Teilen-Symbol → *Zum Home-Bildschirm*
+**3. Am Handy öffnen**
+Diese Adresse im Handy-Browser aufrufen. Am iPhone bitte **Safari** benutzen, am Android **Chrome** — bei anderen Browsern fehlt der nächste Schritt.
 
-Danach startet sie im Vollbild ohne Browserleiste, mit eigenem Icon — und **funktioniert offline**, weil ein Service Worker die App zwischenspeichert. Ohne Netz startet sie genauso; sie holt sich Aktualisierungen beim nächsten Start mit Verbindung.
+**4. Auf den Startbildschirm legen**
+* **iPhone:** unten auf das Teilen-Symbol (Viereck mit Pfeil nach oben) → runterscrollen → **Zum Home-Bildschirm** → *Hinzufügen*
+* **Android:** oben rechts auf die drei Punkte `⋮` → **App installieren** (oder *Zum Startbildschirm hinzufügen*)
 
-GitHub Pages einschalten: Repo → *Settings* → *Pages* → unter *Source* **GitHub Actions** wählen. Der Workflow liegt schon bei; nach dem nächsten Push auf `main` ist die App unter `https://artonkrasniqi.github.io/Life-Planner/` erreichbar.
+**5. Fertig**
+Jetzt liegt das Arc-Reactor-Icon auf deinem Startbildschirm. Ein Tipp darauf öffnet die App im Vollbild — ohne Browserleiste, wie eine normale App. Sie startet auch **ohne Internet**.
 
-### 2. Schnell aus dem Heimnetz testen
+> Solange Schritt 1 nicht gemacht ist, kannst du die App am Handy nur im gleichen WLAN testen: am Rechner `npm start` laufen lassen, die IP des Rechners herausfinden (`hostname -I` unter Linux, `ipconfig getifaddr en0` am Mac) und am Handy `http://<diese-IP>:5173` aufrufen. Installieren geht so nicht.
 
-Rechner und Handy im selben WLAN:
+---
 
-```bash
-npx serve . -l 5173        # oder: python3 -m http.server 5173 --bind 0.0.0.0
-ipconfig getifaddr en0     # macOS · Linux: hostname -I
-```
+## Synchronisierung zwischen Handy und Rechner
 
-Am Handy `http://<IP-des-Rechners>:5173` aufrufen. Zum Ausprobieren reicht das — installieren und offline nutzen geht so allerdings nicht, dafür braucht es `https`.
+Standardmäßig bleibt jedes Gerät für sich. Damit alle Geräte denselben Stand haben, richtest du den Abgleich einmal ein — unter **System → Synchronisierung**.
 
-### 3. Wichtig zu den Daten
+Die Daten liegen dabei **verschlüsselt** am Ablageort. Du vergibst ein Kennwort, und ohne dieses Kennwort sieht selbst jemand mit vollem Zugriff auf die Ablage nur Buchstabensalat. Das ist bei Schulden- und Kontodaten kein Luxus, sondern die Grundvoraussetzung.
 
-Der Speicher hängt am jeweiligen Browser: **Handy und Rechner führen getrennte Datenbestände.** Es gibt keine Synchronisierung — das ist der Preis dafür, dass nichts das Gerät verlässt.
+### Einrichtung mit GitHub Gist (empfohlen)
 
-Zum Umziehen oder Abgleichen: **System → Backup exportieren** auf dem einen Gerät, die JSON-Datei aufs andere schieben (AirDrop, Mail, Cloud) und dort **Backup einspielen**. Das ersetzt den kompletten Bestand des Zielgeräts.
+Du hast GitHub schon — dann braucht es keinen weiteren Dienst.
 
-Praktischer Ansatz: ein Gerät als Hauptgerät führen und das andere per Backup nachziehen.
+**Auf dem ersten Gerät:**
+
+1. Token erzeugen: [github.com/settings/personal-access-tokens/new](https://github.com/settings/personal-access-tokens/new)
+   * *Token name*: beliebig, z. B. „Life Planner“
+   * *Expiration*: nach Geschmack (bei „No expiration“ musst du es nie erneuern)
+   * *Repository access*: **Public Repositories** reicht
+   * Unter **Account permissions** → **Gists** auf **Read and write** stellen
+   * Unten **Generate token** und den Wert kopieren
+2. In der App: **System → Synchronisierung** → Ablageort **GitHub Gist**
+3. Token einfügen, **Kennwort** vergeben (frei wählbar, nur du kennst es), auf **Verbinden**
+
+Die App legt dabei automatisch einen privaten Gist an und trägt dessen ID selbst ein.
+
+**Auf dem zweiten Gerät:**
+
+1. Auf dem ersten Gerät **Kopplungscode** antippen — der landet in der Zwischenablage
+2. Den Code aufs zweite Gerät schicken (Nachricht an dich selbst, Notiz-App, egal)
+3. Dort **System → Synchronisierung → Kopplungscode einfügen**
+4. Dasselbe **Kennwort** eintragen und **Verbinden**
+
+Nach ein paar Sekunden sind beide Geräte auf demselben Stand.
+
+> Der Kopplungscode enthält dein Token — behandle ihn wie ein Passwort und lösche die Nachricht danach.
+
+### Eigener Server statt Gist
+
+Wer lieber selbst hostet, wählt **Eigener Server** und gibt eine Adresse an. Der Vertrag ist bewusst minimal:
+
+* `GET <adresse>` → liefert die zuletzt abgelegte Nutzlast als JSON (oder `404`, wenn noch nichts da ist)
+* `PUT <adresse>` → nimmt die Nutzlast entgegen und speichert sie
+* optional: ein Bearer-Token, das die App mitschickt
+
+Das sind ein paar Zeilen in einem Cloudflare Worker, einer Node-Funktion oder auf jedem Webspace mit Schreibrechten. Der Inhalt ist bereits verschlüsselt, wenn er dort ankommt.
+
+### Wie der Abgleich arbeitet
+
+* **Automatisch** — ein paar Sekunden nach einer Änderung, beim Öffnen der App, beim Zurückkehren in den Tab und sobald das Netz wiederkommt. Abschaltbar.
+* **Zusammenführen statt überschreiben.** Jeder Eintrag trägt einen Zeitstempel. Beim Abgleich wird zuerst gelesen, dann zusammengeführt, dann geschrieben. Ein Gerät, das eine Woche offline war, kann den Stand des anderen nicht überbügeln — es steuert nur seine eigenen Änderungen bei.
+* **Löschen wirkt.** Gelöschtes hinterlässt einen Vermerk, damit ein Eintrag nicht vom alten Stand des anderen Geräts wieder auftaucht.
+* **Ändern beide Geräte denselben Eintrag**, gewinnt die spätere Änderung. Das ist Last-Write-Wins auf Eintragsebene, kein CRDT — für einen persönlichen Planer der richtige Kompromiss. Unterschiedliche Einträge gehen dabei nie verloren.
+* **Ausgenommen bleiben:** das Auge (Schulden verbergen) gilt pro Gerät, ebenso Token und Kennwörter. Die verlassen dein Gerät nie.
+
+### Wenn etwas klemmt
+
+| Meldung | Ursache |
+|---|---|
+| *Falsches Kennwort* | Auf den Geräten unterschiedliche Kennwörter. Lokale Daten bleiben unberührt. |
+| *Token abgelehnt (401)* | Token abgelaufen oder falsch kopiert. |
+| *Zugriff verweigert (403)* | Dem Token fehlt die Gist-Berechtigung (Schritt 1, „Account permissions → Gists“). |
+| *Gist nicht gefunden (404)* | Falsche Gist-ID auf dem zweiten Gerät. |
+| *Verschlüsselung braucht https* | Über `http://` im WLAN geht Verschlüsselung nicht — dafür Schritt 1 der Handy-Anleitung erledigen. |
+
+Ohne Abgleich bleibt der Weg über **System → Backup exportieren** und auf dem anderen Gerät **Backup einspielen**.
 
 ---
 
@@ -121,7 +176,7 @@ Tastatur: `/` fokussiert die Zeile, `Enter` legt an, `⇧Enter` öffnet den voll
 | **Finanzen** | Konten, Buchungen, 12-Monats-Cashflow, Ausgabenstruktur als Donut, Budgets pro Kategorie, Nettovermögen |
 | **Schulden** | Restschuld, Tilgungsfortschritt, Zinskosten, Restlaufzeit, Prognose über 36 Monate, Strategievergleich Avalanche/Snowball — **mit Auge zum Ein- und Ausblenden** |
 | **Vitalwerte** | Recovery / Strain / Schlaf / HRV als Gauges, Verlaufsdiagramme, Kennzahlen mit Sparklines, Whoop- und Garmin-Import |
-| **System** | Profil, Backup exportieren/einspielen, Demo-Daten, Zurücksetzen |
+| **System** | Synchronisierung, Profil, Backup exportieren/einspielen, Demo-Daten, Zurücksetzen |
 
 ---
 
@@ -167,6 +222,8 @@ Steuer abgeben !!! @morgen #finanzen #admin
 | `T` | Zum heutigen Tag im Kalender |
 | `Esc` | Dialog schließen |
 
+Der Ring oben rechts zeigt den Zustand des Abgleichs — ein Klick stößt ihn sofort an.
+
 ---
 
 ## Whoop-Daten importieren
@@ -189,9 +246,9 @@ Whoop- und Garmin-Werte landen in **derselben Zeitreihe**. Stammen die Werte ein
 
 ## Datenhaltung
 
-Alles liegt unter dem Schlüssel `life-os:state:v1` im `localStorage` des Browsers. Nichts verlässt das Gerät, es gibt keine Netzwerkaufrufe (außer einem selbst konfigurierten Proxy).
+Alles liegt unter dem Schlüssel `life-os:state:v1` im `localStorage` des Browsers. Ohne eingerichteten Abgleich gibt es überhaupt keine Netzwerkaufrufe.
 
-Praktische Konsequenz: Die Daten hängen an Browser **und** Profil. Für Backups und Gerätewechsel:
+Mit Abgleich verlässt nur die verschlüsselte Nutzlast das Gerät — Token, Kennwort und die Auge-Einstellung bleiben lokal und stehen auch nicht im Backup.
 
 **System → Backup exportieren** schreibt eine JSON-Datei, **Backup einspielen** liest sie zurück.
 
@@ -209,6 +266,11 @@ src/
   main.js                Boot-Sequenz, Router, Navigation, Tastenkürzel
   store.js               Zustand, Persistenz, Pub/Sub, Domänenaktionen
   quickparse.js          Freitext-Erkennung für die Schnellnotizzeile
+  sync/
+    merge.js             Zeitstempel, Grabsteine, Zusammenführen (rein)
+    crypto.js            AES-GCM + PBKDF2 über Web Crypto
+    providers.js         Ablageorte: GitHub Gist, eigener Server
+    engine.js            Ablauf: lesen → zusammenführen → schreiben
   util.js                DOM-Helfer, Datum, Formatierung, Icons, CSV-Parser
   charts.js              Canvas-Diagramme: Linie, Balken, Donut, Gauge, Sparkline
   seed.js                Demo-Datensatz

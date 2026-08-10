@@ -158,6 +158,24 @@ body::after {
 }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
 
+/* Statusanzeige des Abgleichs */
+.syncchip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 10px;
+  font: inherit;
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em;
+  text-transform: uppercase;
+  background: transparent;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+  transition: background .15s, border-color .15s;
+  white-space: nowrap;
+}
+.syncchip:hover { background: rgba(58,215,255,0.09); border-color: var(--line-strong); }
+.syncchip__spin { animation: spin 1.1s linear infinite; }
+@media (max-width: 980px) { .syncchip__txt { display: none; } }
+
 .clock {
   font-family: var(--font-mono); font-size: 16px; font-weight: 600;
   color: var(--white); letter-spacing: 0.06em;

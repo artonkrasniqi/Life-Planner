@@ -3,6 +3,7 @@
    ============================================================ */
 
 import { uid, todayISO } from './util.js';
+import { buildBaseline, stampChanges, touchAll, pruneTombstones } from './sync/merge.js';
 
 const KEY = 'life-os:state:v1';
 const SCHEMA = 1;
@@ -41,7 +42,26 @@ function emptyState() {
       whoop: { connected: false, lastSync: null, note: '' },
       garmin: { connected: false, lastSync: null, note: '' },
     },
-    meta: { created: todayISO(), seeded: false },
+    // Verbindungsdaten für den Abgleich — bleiben gerätelokal und
+    // werden weder synchronisiert noch in Backups geschrieben.
+    sync: {
+      provider: 'off',
+      token: '',
+      gistId: '',
+      url: '',
+      encrypt: true,
+      passphrase: '',
+      auto: true,
+      lastSync: null,
+      lastError: '',
+    },
+    meta: {
+      created: todayISO(),
+      seeded: false,
+      deviceId: uid(),
+      tombstones: {},
+      fieldUpdated: {},
+    },
   };
 }
 
@@ -69,7 +89,11 @@ function migrate(data) {
     whoop: { ...base.integrations.whoop, ...(data.integrations?.whoop || {}) },
     garmin: { ...base.integrations.garmin, ...(data.integrations?.garmin || {}) },
   };
+  merged.sync = { ...base.sync, ...(data.sync || {}) };
   merged.meta = { ...base.meta, ...(data.meta || {}) };
+  merged.meta.tombstones = pruneTombstones(merged.meta.tombstones || {});
+  merged.meta.fieldUpdated = merged.meta.fieldUpdated || {};
+  if (!merged.meta.deviceId) merged.meta.deviceId = uid();
   for (const k of ['events', 'todos', 'accounts', 'transactions', 'debts', 'bio']) {
     if (!Array.isArray(merged[k])) merged[k] = [];
   }
@@ -81,6 +105,11 @@ function migrate(data) {
 let state = load() || emptyState();
 const listeners = new Set();
 let saveTimer = null;
+
+/* Momentaufnahme, gegen die geänderte Einträge erkannt werden. */
+let baseline = buildBaseline(state);
+/* Liegen lokale Änderungen vor, die noch nicht hochgeladen wurden? */
+let dirty = false;
 
 function persist() {
   clearTimeout(saveTimer);
@@ -110,27 +139,77 @@ export const store = {
   /** Mutiert den Zustand, speichert und benachrichtigt alle Views. */
   update(mutator) {
     mutator(state);
+    if (stampChanges(state, baseline)) dirty = true;
+    baseline = buildBaseline(state);
     persist();
     emit();
   },
 
   /** Ersetzt den kompletten Zustand (Import / Reset). */
   replace(next) {
+    const keepSync = state.sync;
     state = migrate(next);
+    state.sync = keepSync;               // Verbindung überlebt einen Import
+    touchAll(state);                     // Importiertes gewinnt beim nächsten Abgleich
+    baseline = buildBaseline(state);
+    dirty = true;
     persist();
     emit();
   },
 
   reset() {
+    const keepSync = state.sync;
     state = emptyState();
+    state.sync = keepSync;
+    baseline = buildBaseline(state);
+    dirty = true;
     persist();
     emit();
   },
 
+  /**
+   * Übernimmt einen zusammengeführten Stand von der Gegenstelle.
+   * Stempelt bewusst NICHT — sonst gingen die Zeitstempel der
+   * Gegenseite verloren und jeder Abgleich würde alles neu schreiben.
+   */
+  applyRemote(next) {
+    state = next;
+    baseline = buildBaseline(state);
+    persist();
+    emit();
+  },
+
+  /** Stempelt alle Einträge — beim erstmaligen Verbinden. */
+  touchAll() {
+    touchAll(state);
+    baseline = buildBaseline(state);
+    dirty = true;
+    persist();
+    emit();
+  },
+
+  get dirty() { return dirty; },
+  clearDirty() { dirty = false; },
+
+  /** Backup ohne Geheimnisse: Token und Kennwort bleiben auf dem Gerät. */
   export() {
-    return JSON.stringify({ ...state, exportedAt: new Date().toISOString() }, null, 2);
+    const { sync, ...rest } = state;
+    return JSON.stringify({
+      ...rest,
+      integrations: stripSecrets(rest.integrations),
+      exportedAt: new Date().toISOString(),
+    }, null, 2);
   },
 };
+
+function stripSecrets(integrations) {
+  const out = {};
+  for (const [k, v] of Object.entries(integrations || {})) {
+    const { token, ...safe } = v || {};
+    out[k] = safe;
+  }
+  return out;
+}
 
 /* ---------- Aktionen: Termine ---------- */
 

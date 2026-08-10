@@ -6,7 +6,7 @@
    die neue Fassung ist beim nächsten Öffnen aktiv.
    ============================================================ */
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = `life-os-${VERSION}`;
 
 const ASSETS = [
@@ -21,6 +21,10 @@ const ASSETS = [
   './src/seed.js',
   './src/nav.js',
   './src/quickparse.js',
+  './src/sync/merge.js',
+  './src/sync/crypto.js',
+  './src/sync/providers.js',
+  './src/sync/engine.js',
   './src/ui/widgets.js',
   './src/ui/modal.js',
   './src/ui/reactor.js',
@@ -57,12 +61,24 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
+/**
+ * Nur der Programmcode gehört in den Cache. Datenabrufe — Abgleich,
+ * Whoop-Proxy — dürfen niemals aus dem Cache kommen, sonst arbeitet die
+ * App mit einem veralteten Stand und überschreibt frische Daten.
+ */
+function isAppAsset(req, url) {
+  if (req.mode === 'navigate') return true;
+  if (req.cache === 'no-store' || req.cache === 'reload') return false;
+  return /\.(?:js|css|html|png|svg|webmanifest|ico|woff2?)$/i.test(url.pathname);
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
-  if (url.origin !== self.location.origin) return;   // Proxy-Abrufe nie cachen
+  if (url.origin !== self.location.origin) return;   // fremde Hosts nie anfassen
+  if (!isAppAsset(req, url)) return;                 // Daten immer frisch holen
 
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);

@@ -10,6 +10,7 @@ import { eyeButton } from './ui/widgets.js';
 import { confirmModal } from './ui/modal.js';
 import { buildSeed } from './seed.js';
 import { mountQuickbar, focusQuickbar } from './ui/quickbar.js';
+import { startSync, runSync, onSyncStatus, syncStatus, isConfigured } from './sync/engine.js';
 
 import * as dashboard from './views/dashboard.js';
 import * as calendar from './views/calendar.js';
@@ -151,11 +152,41 @@ function renderTopbar() {
     h('span', {}, 'Datenschutz ', h('b', {}, hidden ? 'aktiv' : 'offen')),
   ));
 
+  bar.appendChild(syncChip());
   bar.appendChild(eyeButton(hidden, () => debts.toggleHidden()));
 
   const clock = h('div', { class: 'clock' });
   bar.appendChild(clock);
   tickClock(clock);
+}
+
+/** Statusanzeige des Abgleichs in der Kopfleiste. */
+function syncChip() {
+  const st = syncStatus();
+  const LOOK = {
+    off:     { color: 'var(--muted)', icon: 'link', label: 'Kein Abgleich', title: 'Synchronisierung einrichten' },
+    idle:    { color: 'var(--green)', icon: 'refresh', label: 'Synchron', title: 'Jetzt abgleichen' },
+    syncing: { color: 'var(--cyan)', icon: 'refresh', label: 'Abgleich …', title: 'Abgleich läuft' },
+    error:   { color: 'var(--red)', icon: 'alert', label: 'Fehler', title: st.message || 'Fehler beim Abgleich' },
+    offline: { color: 'var(--gold)', icon: 'alert', label: 'Offline', title: 'Kein Netz — wird nachgeholt' },
+  };
+  const look = LOOK[st.status] || LOOK.off;
+
+  return h('button', {
+    class: 'syncchip',
+    type: 'button',
+    title: look.title,
+    'aria-label': look.title,
+    style: { color: look.color },
+    onclick: () => { if (isConfigured()) runSync('Knopfdruck'); else navigate('settings'); },
+  },
+    h('span', {
+      class: st.status === 'syncing' ? 'syncchip__spin' : '',
+      style: { display: 'inline-flex' },
+      html: icon(look.icon, 14),
+    }),
+    h('span', { class: 'syncchip__txt' }, look.label),
+  );
 }
 
 let clockTimer = null;
@@ -295,6 +326,14 @@ async function start() {
   renderView();
   document.addEventListener('keydown', onKey);
   registerSW();
+
+  // Statuswechsel des Abgleichs: Kopfleiste immer, Einstellungen nur dort.
+  onSyncStatus(() => {
+    if (current === 'settings') renderView();
+    else renderTopbar();
+  });
+  startSync();
+
   await boot();
   await firstRun();
 }
