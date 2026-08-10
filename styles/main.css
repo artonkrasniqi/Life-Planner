@@ -30,6 +30,13 @@
   --rail-w:      212px;
   --top-h:       58px;
 
+  /* Sichere Bereiche (Notch, Home-Indikator). Als Variablen, damit sie
+     sich zum Prüfen überschreiben lassen — env() ist sonst nicht testbar. */
+  --sat: env(safe-area-inset-top, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+
   --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
@@ -105,7 +112,7 @@ body::after {
   z-index: 2;
   display: grid;
   grid-template-columns: var(--rail-w) 1fr;
-  grid-template-rows: var(--top-h) auto 1fr;
+  grid-template-rows: calc(var(--top-h) + var(--sat)) auto 1fr;
   grid-template-areas:
     "top top"
     "cmd cmd"
@@ -123,7 +130,9 @@ body::after {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 0 16px 0 18px;
+  /* Der obere Rand hält die Statusleiste frei — als Web-App reicht die
+     Seite sonst bis unter Uhrzeit und Akkuanzeige. */
+  padding: var(--sat) calc(16px + var(--sar)) 0 calc(18px + var(--sal));
   border-bottom: 1px solid var(--line);
   background: linear-gradient(180deg, rgba(8,16,28,0.95), rgba(6,12,22,0.72));
   backdrop-filter: blur(6px);
@@ -907,24 +916,51 @@ body::after {
    Mobile
    ============================================================ */
 @media (max-width: 820px) {
-  :root { --rail-w: 0px; --top-h: 54px; }
+  :root { --rail-w: 0px; --top-h: 52px; }
   .app {
     grid-template-columns: 1fr;
-    grid-template-rows: var(--top-h) auto 1fr auto;
+    grid-template-rows: calc(var(--top-h) + var(--sat)) auto 1fr auto;
     grid-template-areas: "top" "cmd" "view" "rail";
   }
+
+  .topbar { gap: 10px; padding: var(--sat) calc(10px + var(--sar)) 0 calc(12px + var(--sal)); }
+  .brand__sub { display: none; }
+  .brand { gap: 9px; }
+  .brand__mark { width: 28px; height: 28px; }
+  .brand__name { font-size: 13px; letter-spacing: 0.24em; }
+  .status-strip { display: none; }
+  /* Die Uhrzeit steht schon in der Statusleiste des Telefons. */
+  .clock { display: none; }
+
+  /* Sieben Symbole müssen nebeneinander passen, nicht scrollen. */
   .rail {
     flex-direction: row;
     border-right: 0; border-top: 1px solid var(--line);
-    padding: 6px 6px max(6px, env(safe-area-inset-bottom)); gap: 2px;
-    overflow-x: auto; overflow-y: hidden;
+    padding: 5px 4px calc(5px + var(--sab)); gap: 0;
+    overflow: hidden;
   }
-  .topbar { padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }
   .rail__label, .rail__foot, .navbtn span.navbtn__txt { display: none; }
-  .navbtn { flex-direction: column; gap: 3px; padding: 8px 12px; min-width: 58px; justify-content: center; }
-  .navbtn__badge { position: absolute; top: 2px; right: 4px; margin: 0; }
+  .navbtn {
+    flex: 1 1 0; min-width: 0;
+    flex-direction: column; gap: 3px;
+    padding: 9px 2px; justify-content: center;
+    clip-path: none;
+  }
+  .navbtn.is-active {
+    background: linear-gradient(180deg, rgba(58,215,255,0.20), rgba(58,215,255,0.02));
+    border-color: transparent;
+  }
+  /* Markierung oben statt links — sonst steht der Strich quer zur Leiste. */
+  .navbtn.is-active::before {
+    left: 8px; right: 8px; top: 0; bottom: auto; width: auto; height: 2px;
+  }
+  .navbtn__badge { position: absolute; top: 1px; right: 6px; margin: 0; font-size: 9px; padding: 0 4px; }
+
   .view { padding: 14px 12px 24px; }
-  .brand__sub { display: none; }
-  .status-strip { display: none; }
   .view__title { font-size: 19px; }
+
+  /* Der Reaktor darf auf dem Telefon nicht den halben Schirm belegen. */
+  .dash-reactor { width: 92px; }
+  .dash-reactor svg { display: block; width: 100%; height: auto; }
+  .kpi__value { font-size: 23px; }
 }

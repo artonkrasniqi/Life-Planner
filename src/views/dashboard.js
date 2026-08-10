@@ -42,7 +42,7 @@ export function render() {
   const last = bio.latest();
 
   const reactorPanel = h('section', { class: 'panel', style: { display: 'flex', gap: '18px', alignItems: 'center', flexWrap: 'wrap' } },
-    h('div', { style: { flex: 'none' }, html: reactorSVG(126, integrity.score / 100) }),
+    h('div', { class: 'dash-reactor', style: { flex: 'none' }, html: reactorSVG(126, integrity.score / 100) }),
     h('div', { style: { flex: '1 1 200px', minWidth: '180px' } },
       h('div', { class: 'panel__sub' }, 'Systemintegrität'),
       h('div', {
