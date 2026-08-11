@@ -913,6 +913,41 @@ body::after {
 }
 .search__more { padding-top: 2px; padding-left: 41px; font-size: 10px; }
 
+/* --- Umsatz-Import ----------------------------------------- */
+.bimp { max-height: 86dvh; }
+.bimp__head { padding: 13px 15px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 10px; }
+.bimp__stats { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.bimp__stat { display: flex; flex-direction: column; gap: 1px; }
+.bimp__k {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--muted);
+}
+.bimp__v { font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--white); }
+.bimp__v.is-green { color: var(--green); }
+.bimp__v.is-gold { color: var(--gold); }
+
+.bimp__rows { overflow-y: auto; flex: 1; }
+.bimp__row {
+  display: grid;
+  grid-template-columns: 20px 58px 1fr auto 92px;
+  gap: 9px; align-items: center;
+  padding: 7px 15px;
+  border-bottom: 1px solid rgba(72,196,255,0.08);
+  cursor: pointer;
+}
+.bimp__row:hover { background: rgba(58,215,255,0.05); }
+.bimp__row.is-off { opacity: .38; }
+.bimp__row input { accent-color: var(--cyan); width: 16px; height: 16px; }
+.bimp__date { font-family: var(--font-mono); font-size: 10.5px; color: var(--muted); }
+.bimp__note { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bimp__amt { font-family: var(--font-mono); font-size: 12.5px; font-weight: 700; text-align: right; }
+.bimp__amt.pos { color: var(--green); }
+.bimp__amt.neg { color: var(--red); }
+@media (max-width: 620px) {
+  .bimp__row { grid-template-columns: 20px 1fr 82px; }
+  .bimp__date, .bimp__cat { display: none; }
+}
+
 /* ============================================================
    Toasts
    ============================================================ */

@@ -2,7 +2,7 @@
 
 Interaktiver Life-Planner im HUD-Stil: **Termine, To-dos, Finanzen, Schulden und Whoop-Daten** (Garmin vorbereitet) in einer einzigen Kommandozentrale.
 
-Ganz oben liegt eine **Schnellnotizzeile**, die selbst erkennt, was aus dem Getippten werden soll — Termin, Aufgabe, Buchung, Schuld oder Ratenzahlung.
+Ganz oben liegt eine **Schnellnotizzeile**, die selbst erkennt, was aus dem Getippten werden soll — Termin, Aufgabe, Buchung, Schuld oder Ratenzahlung. Wiederkehrendes trägt sich von allein nach, Bankumsätze kommen per Datei herein.
 
 Keine Abhängigkeiten, kein Build-Schritt. Die Daten liegen lokal im Browser; auf Wunsch gleichen sich mehrere Geräte **Ende-zu-Ende-verschlüsselt** ab. Als App installierbar und offlinefähig.
 
@@ -173,10 +173,54 @@ Tastatur: `/` fokussiert die Zeile, `Enter` legt an, `⇧Enter` öffnet den voll
 | **Zentrale** | Arc-Reactor mit „Systemintegrität“ (Score aus Aufgaben, Finanzen, Schulden, Körper), nächster Termin, Cashflow, Agenda, Prioritäten, Vitalwerte |
 | **Termine** | Google-Kalender-Spiegelung, Monatsraster + Tagesagenda, Kategorien mit Farbcodierung, Dauer, Ort, Notizen. Doppelklick auf einen Tag legt direkt einen Termin an |
 | **Aufgaben** | Prioritäten, Fälligkeiten, Tags, Filter, Auslastungsstatistik, Schnellerfassung mit Kurzsyntax |
-| **Finanzen** | Konten, Buchungen, 12-Monats-Cashflow, Ausgabenstruktur als Donut, Budgets pro Kategorie, Nettovermögen |
+| **Finanzen** | Konten, Buchungen, Bankumsatz-Import, wiederkehrende Einträge, 12-Monats-Cashflow, Ausgabenstruktur als Donut, Budgets, Nettovermögen |
 | **Schulden** | Restschuld, Tilgungsfortschritt, Zinskosten, Restlaufzeit, Prognose über 36 Monate, Strategievergleich Avalanche/Snowball — **mit Auge zum Ein- und Ausblenden** |
 | **Vitalwerte** | Recovery / Strain / Schlaf / HRV als Gauges, Verlaufsdiagramme, Kennzahlen mit Sparklines, Whoop- und Garmin-Import |
 | **System** | Synchronisierung, Profil, Backup exportieren/einspielen, Demo-Daten, Zurücksetzen |
+
+---
+
+## Wiederkehrende Einträge
+
+**Finanzen → Wiederkehrend.** Miete, Abos, Gehalt, Kreditraten, der wöchentliche Müll — einmal als Regel anlegen statt jeden Monat neu eintippen.
+
+Möglich sind wöchentlich, monatlich, vierteljährlich und jährlich, mit optionalem Enddatum. Eine Regel erzeugt Buchungen, Termine oder Aufgaben.
+
+Beim Öffnen der App wird nachgetragen, was seit dem letzten Mal fällig war. **Buchungen und Aufgaben nur bis heute** — die Miete für nächsten Monat abzubuchen wäre falsch. **Termine greifen 60 Tage vor**, damit der Kalender gefüllt ist.
+
+Jede Ausführung bekommt eine aus Regel und Datum berechnete Kennung. Dieselbe Ausführung kann deshalb nie doppelt entstehen: nicht beim zweiten Start, nicht nach einem Neuladen, und auch nicht, wenn zwei abgeglichene Geräte am selben Tag nachholen.
+
+Der 31. als Monatstag rutscht in kürzeren Monaten automatisch auf den letzten Tag.
+
+---
+
+## Bankumsätze einlesen
+
+**Finanzen → Umsätze einlesen.** Lade bei deiner Bank die Umsatzliste als CSV herunter und wähle sie hier aus.
+
+Es gibt kein einheitliches Format — Sparkasse, DKB, comdirect, C24 und Consorsbank benennen ihre Spalten unterschiedlich, setzen Vorspann-Zeilen über die Kopfzeile und trennen mal mit Semikolon, mal mit Komma. Der Import sucht die Kopfzeile selbst und ordnet die Spalten über Stichwörter zu; getrennte Soll-/Haben-Spalten werden ebenfalls verstanden.
+
+**Vor dem Übernehmen kommt eine Vorschau:** wie viele Zeilen gefunden wurden, welche neu sind, welche schon gebucht sind, und jede einzelne Zeile mit geratener Kategorie. Einzelne Zeilen lassen sich abwählen.
+
+**Doppelte werden erkannt** — über Datum, Betrag und Verwendungszweck. Dieselbe Datei zweimal einzulesen fügt nichts doppelt hinzu, und überlappende Zeiträume sind unproblematisch.
+
+Kategorien werden aus Empfänger und Verwendungszweck geraten (REWE → Lebensmittel, ARAL → Transport, Netflix → Abos, Allianz → Versicherung und so weiter).
+
+> Ein automatischer Abruf direkt von der Bank ist nicht möglich: C24, Trade Republic und Consorsbank haben keine offene Schnittstelle für Privatpersonen, und der offizielle Weg über PSD2 steht nur BaFin-registrierten Diensten offen. Depots sind davon ohnehin nicht abgedeckt.
+
+---
+
+## Suche
+
+Das Fadenkreuz oben rechts oder die Taste **S**. Sucht gleichzeitig in Terminen, Aufgaben, Buchungen und Schulden, hebt die Treffer hervor und springt beim Antippen dorthin, wo der Eintrag steht — bei einer Buchung auch in den passenden Monat.
+
+---
+
+## Papierkorb
+
+Gelöschtes verschwindet nicht sofort, sondern liegt **30 Tage** im Papierkorb (**System → Papierkorb**). Direkt nach dem Löschen genügt **Rückgängig** in der Einblendung unten rechts.
+
+Der Papierkorb ist gerätelokal: Er ist die Sicherung *dieses* Geräts, keine geteilte Liste. Ein Zurückholen verteilt den Eintrag über den Abgleich wieder an die anderen Geräte.
 
 ---
 
@@ -216,6 +260,7 @@ Steuer abgeben !!! @morgen #finanzen #admin
 | Taste | Funktion |
 |---|---|
 | `/` | Schnellnotizzeile fokussieren |
+| `S` | Suche über alles |
 | `1` … `7` | Ansicht wechseln |
 | `N` | Neuer Eintrag in der aktuellen Ansicht |
 | `A` | Schulden ein-/ausblenden |
@@ -306,6 +351,7 @@ src/
   main.js                Boot-Sequenz, Router, Navigation, Tastenkürzel
   store.js               Zustand, Persistenz, Pub/Sub, Domänenaktionen
   quickparse.js          Freitext-Erkennung für die Schnellnotizzeile
+  recurring.js           Wiederholungsregeln und Nachholen (rein, testbar)
   sync/
     merge.js             Zeitstempel, Grabsteine, Zusammenführen (rein)
     crypto.js            AES-GCM + PBKDF2 über Web Crypto
@@ -317,6 +363,9 @@ src/
   nav.js                 Vermittler für Navigation/Neurendern
   ui/
     quickbar.js          Schnellnotizzeile mit Live-Vorschau
+    search.js            Suche über alle Bereiche
+    recurring-panel.js   Verwaltung der Wiederholungsregeln
+    bank-import.js       Vorschau und Übernahme von Bankumsätzen
     widgets.js           Panel, KPI, Fortschrittsbalken, Chips, Auge-Button
     modal.js             Generischer Formular-Dialog + Bestätigung
     reactor.js           Animierter Arc-Reactor (SVG)
@@ -327,6 +376,7 @@ src/
     google.js            Google Kalender (Anmeldung im Browser, ohne Secret)
     whoop.js             CSV/JSON-Parser, OAuth und Abruf über den Vermittler
     garmin.js            CSV-/JSON-Parser + Proxy-Abruf
+    bank.js              Spaltenerkennung für deutsche Bank-Exporte
     connections.js       Steuerung der Live-Verbindungen
 worker/
   whoop-proxy.js         Cloudflare Worker, hält das Whoop-Client-Secret

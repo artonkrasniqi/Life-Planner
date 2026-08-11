@@ -10,7 +10,7 @@
    Antwort zu lange dauert. Offline funktioniert damit unverändert.
    ============================================================ */
 
-const VERSION = 'v6';
+const VERSION = 'v7';
 const NETWORK_TIMEOUT_MS = 3500;
 const CACHE = `life-os-${VERSION}`;
 
@@ -36,6 +36,8 @@ const ASSETS = [
   './src/ui/quickbar.js',
   './src/ui/search.js',
   './src/ui/recurring-panel.js',
+  './src/ui/bank-import.js',
+  './src/integrations/bank.js',
   './src/recurring.js',
   './src/build.js',
   './src/views/dashboard.js',

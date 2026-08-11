@@ -12,6 +12,7 @@ import { formModal, confirmModal } from '../ui/modal.js';
 import { barChart, donutChart, legend, hexA } from '../charts.js';
 import { refresh } from '../nav.js';
 import { recurringPanel } from '../ui/recurring-panel.js';
+import { startBankImport } from '../ui/bank-import.js';
 
 const local = {
   y: new Date().getFullYear(),
@@ -43,6 +44,7 @@ export function render() {
   frag.appendChild(viewHead(
     'Liquidität & Vermögen',
     'Finanzen',
+    h('button', { class: 'btn btn--ghost', onclick: () => startBankImport(), html: icon('upload', 13) + '<span>Umsätze einlesen</span>' }),
     h('button', { class: 'btn btn--ghost', onclick: () => openAccountForm(), html: icon('wallet', 13) + '<span>Konto</span>' }),
     h('button', { class: 'btn btn--primary', onclick: () => openTxForm(), html: icon('plus', 13) + '<span>Buchung</span>' }),
   ));
