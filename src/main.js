@@ -13,6 +13,7 @@ import { mountQuickbar, focusQuickbar } from './ui/quickbar.js';
 import { startSync, runSync, onSyncStatus, syncStatus, isConfigured } from './sync/engine.js';
 import { whoopConn } from './integrations/connections.js';
 import { BUILD } from './build.js';
+import { openSearch } from './ui/search.js';
 
 import * as dashboard from './views/dashboard.js';
 import * as calendar from './views/calendar.js';
@@ -154,6 +155,11 @@ function renderTopbar() {
     h('span', {}, 'Datenschutz ', h('b', {}, hidden ? 'aktiv' : 'offen')),
   ));
 
+  bar.appendChild(h('button', {
+    class: 'iconbtn', type: 'button', title: 'Suchen (S)', 'aria-label': 'Suchen',
+    onclick: () => openSearch(),
+    html: icon('target', 14),
+  }));
   bar.appendChild(syncChip());
   bar.appendChild(eyeButton(hidden, () => debts.toggleHidden()));
 
@@ -220,6 +226,7 @@ function onKey(e) {
   if (n >= 1 && n <= VIEWS.length) { navigate(VIEWS[n - 1].id); return; }
 
   const k = e.key.toLowerCase();
+  if (k === 's') { e.preventDefault(); openSearch(); return; }
   if (k === 'n') {
     const v = VIEWS.find((x) => x.id === current);
     if (v && v.onNew) { e.preventDefault(); v.onNew(); }

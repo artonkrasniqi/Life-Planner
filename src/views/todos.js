@@ -12,6 +12,7 @@ const local = { filter: 'offen', tag: null, quickAdd: '' };
 
 export function setParams(params = {}) {
   if (params.quickAdd) setTimeout(() => document.querySelector('[data-focus-key="todo-quick"]')?.focus(), 60);
+  if (params.filter) { local.filter = params.filter; local.tag = null; }
 }
 
 const FILTERS = [

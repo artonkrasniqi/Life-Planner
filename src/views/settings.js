@@ -28,6 +28,7 @@ export function resetSyncDraft() { draft = null; }
 
 const SHORTCUTS = [
   ['/', 'Schnellnotizzeile fokussieren'],
+  ['S', 'Suche über alles öffnen'],
   ['1 … 7', 'Ansicht wechseln'],
   ['N', 'Neuer Eintrag in der aktuellen Ansicht'],
   ['A', 'Schulden ein-/ausblenden (Auge)'],

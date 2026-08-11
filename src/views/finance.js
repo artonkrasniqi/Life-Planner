@@ -18,6 +18,14 @@ const local = {
   txFilter: 'alle',
 };
 
+/** Sprung aus der Suche: in den Monat der gefundenen Buchung. */
+export function setParams(params = {}) {
+  if (params.month && /^\d{4}-\d{2}$/.test(params.month)) {
+    local.y = Number(params.month.slice(0, 4));
+    local.m = Number(params.month.slice(5, 7)) - 1;
+  }
+}
+
 export function render() {
   const s = store.state;
   const cur = s.profile.currency;
