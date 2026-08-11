@@ -13,7 +13,7 @@
    die Vereinigung über alle Schlüssel.
    ============================================================ */
 
-export const SYNC_COLLECTIONS = ['events', 'todos', 'accounts', 'transactions', 'debts', 'bio'];
+export const SYNC_COLLECTIONS = ['events', 'todos', 'accounts', 'transactions', 'debts', 'bio', 'recurring'];
 
 /** Skalare Bereiche: werden als Ganzes per Zeitstempel übernommen. */
 export const SYNC_FIELDS = ['profile', 'budgets'];

@@ -91,14 +91,30 @@ export function formModal({ title, fields, submitLabel = 'Speichern', wide = fal
           control = h('input', { ...common, type: f.type || 'text', value: f.value ?? '' });
       }
 
-      inputs[f.name] = { el: control, def: f };
-      grid.appendChild(
-        h('label', { class: `field ${f.full ? 'col-2' : ''}` },
-          h('span', { class: 'field__label' }, f.label),
-          control,
-          f.hint ? h('span', { class: 'field__hint' }, f.hint) : null,
-        ),
+      const wrap = h('label', { class: `field ${f.full ? 'col-2' : ''}` },
+        h('span', { class: 'field__label' }, f.label),
+        control,
+        f.hint ? h('span', { class: 'field__hint' }, f.hint) : null,
       );
+      inputs[f.name] = { el: control, def: f, wrap };
+      grid.appendChild(wrap);
+    }
+
+    /** Blendet Felder ein und aus, die nur zu bestimmten Auswahlen passen. */
+    const applyVisibility = () => {
+      const current = {};
+      for (const [name, { el, def }] of Object.entries(inputs)) {
+        current[name] = def.type === 'checkbox' ? el.querySelector('input').checked : el.value;
+      }
+      for (const { def, wrap } of Object.values(inputs)) {
+        if (typeof def.showIf !== 'function') continue;
+        wrap.hidden = !def.showIf(current);
+      }
+    };
+    if (fields.some((f) => f && typeof f.showIf === 'function')) {
+      grid.addEventListener('change', applyVisibility);
+      grid.addEventListener('input', applyVisibility);
+      applyVisibility();
     }
 
     const collect = () => {

@@ -3,7 +3,7 @@
    ============================================================ */
 
 import { h, $, clear, icon, todayISO, toast } from './util.js';
-import { store, todos, debts, events } from './store.js';
+import { store, todos, debts, events, recurring } from './store.js';
 import { setNavigator, setRefresher } from './nav.js';
 import { markSVG, reactorSVG } from './ui/reactor.js';
 import { eyeButton } from './ui/widgets.js';
@@ -341,6 +341,10 @@ async function start() {
     if (current === 'settings') renderView();
     else renderTopbar();
   });
+  // Fällige Wiederholungen nachholen, bevor die erste Ansicht steht.
+  const rec = recurring.run();
+  if (rec.created) toast(`${rec.created} wiederkehrende Einträge nachgetragen.`, 'good');
+
   startSync();
 
   // Kommt der Browser gerade von der Whoop-Anmeldung zurück?

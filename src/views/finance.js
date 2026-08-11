@@ -11,6 +11,7 @@ import { panel, kpi, viewHead, empty, iconButton, progressBar, chip } from '../u
 import { formModal, confirmModal } from '../ui/modal.js';
 import { barChart, donutChart, legend, hexA } from '../charts.js';
 import { refresh } from '../nav.js';
+import { recurringPanel } from '../ui/recurring-panel.js';
 
 const local = {
   y: new Date().getFullYear(),
@@ -185,7 +186,7 @@ export function render() {
 
   frag.appendChild(h('div', { class: 'grid grid--main' },
     h('div', { class: 'stack' }, flowPanel, txPanel),
-    h('div', { class: 'stack' }, catPanel, budgetPanel, accPanel),
+    h('div', { class: 'stack' }, catPanel, recurringPanel(), budgetPanel, accPanel),
   ));
 
   return frag;

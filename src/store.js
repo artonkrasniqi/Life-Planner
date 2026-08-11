@@ -4,6 +4,7 @@
 
 import { uid, todayISO } from './util.js';
 import { buildBaseline, stampChanges, touchAll, pruneTombstones } from './sync/merge.js';
+import { materialize, newRule } from './recurring.js';
 
 const KEY = 'life-os:state:v1';
 const TRASH_TTL_MS = 30 * 24 * 3600 * 1000;   // Papierkorb hält 30 Tage
@@ -39,6 +40,7 @@ function emptyState() {
     budgets: {},
     debts: [],
     bio: [],
+    recurring: [],
     // Gelöschtes wandert hierher statt sofort zu verschwinden.
     // Gerätelokal: was du hier löschst, ist auf dem anderen Gerät weg —
     // der Papierkorb ist die Sicherung dieses Geräts, keine geteilte Liste.
@@ -109,7 +111,7 @@ function migrate(data) {
   merged.meta.tombstones = pruneTombstones(merged.meta.tombstones || {});
   merged.meta.fieldUpdated = merged.meta.fieldUpdated || {};
   if (!merged.meta.deviceId) merged.meta.deviceId = uid();
-  for (const k of ['events', 'todos', 'accounts', 'transactions', 'debts', 'bio', 'trash']) {
+  for (const k of ['events', 'todos', 'accounts', 'transactions', 'debts', 'bio', 'recurring', 'trash']) {
     if (!Array.isArray(merged[k])) merged[k] = [];
   }
   merged.trash = merged.trash.filter((t) => Date.now() - (t.deletedAt || 0) < TRASH_TTL_MS);
@@ -243,7 +245,7 @@ function stripSecrets(integrations) {
 
 const TRASH_LABELS = {
   events: 'Termin', todos: 'Aufgabe', accounts: 'Konto',
-  transactions: 'Buchung', debts: 'Schuld', bio: 'Vitalwerte',
+  transactions: 'Buchung', debts: 'Schuld', bio: 'Vitalwerte', recurring: 'Wiederholung',
 };
 
 /** Verschiebt einen Eintrag in den Papierkorb, statt ihn wegzuwerfen. */
@@ -585,6 +587,40 @@ export const bio = {
     return all.slice(-days);
   },
   byDate(iso) { return state.bio.find((b) => b.date === iso) || null; },
+};
+
+/* ---------- Aktionen: Wiederkehrende Einträge ---------- */
+
+export const recurring = {
+  list() { return [...state.recurring]; },
+  add(patch) {
+    const rule = newRule(patch);
+    store.update((s) => s.recurring.push(rule));
+    recurring.run();
+    return rule;
+  },
+  patch(id, changes) {
+    store.update((s) => {
+      const r = s.recurring.find((x) => x.id === id);
+      if (r) Object.assign(r, changes);
+    });
+    recurring.run();
+  },
+  toggle(id) {
+    store.update((s) => {
+      const r = s.recurring.find((x) => x.id === id);
+      if (r) r.active = !r.active;
+    });
+    recurring.run();
+  },
+  remove(id) { return softDelete('recurring', id); },
+
+  /** Holt nach, was seit dem letzten Lauf fällig war. */
+  run() {
+    let result = { created: 0, byKind: {} };
+    store.update((s) => { result = materialize(s); });
+    return result;
+  },
 };
 
 /* ---------- Abgeleitete Kennzahl: Systemintegrität ---------- */
