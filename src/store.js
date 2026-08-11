@@ -6,6 +6,7 @@ import { uid, todayISO } from './util.js';
 import { buildBaseline, stampChanges, touchAll, pruneTombstones } from './sync/merge.js';
 
 const KEY = 'life-os:state:v1';
+const TRASH_TTL_MS = 30 * 24 * 3600 * 1000;   // Papierkorb hält 30 Tage
 const SCHEMA = 1;
 
 export const CATEGORIES = {
@@ -38,6 +39,10 @@ function emptyState() {
     budgets: {},
     debts: [],
     bio: [],
+    // Gelöschtes wandert hierher statt sofort zu verschwinden.
+    // Gerätelokal: was du hier löschst, ist auf dem anderen Gerät weg —
+    // der Papierkorb ist die Sicherung dieses Geräts, keine geteilte Liste.
+    trash: [],
     integrations: {
       whoop: {
         connected: false, lastSync: null, lastError: '', note: '',
@@ -104,8 +109,21 @@ function migrate(data) {
   merged.meta.tombstones = pruneTombstones(merged.meta.tombstones || {});
   merged.meta.fieldUpdated = merged.meta.fieldUpdated || {};
   if (!merged.meta.deviceId) merged.meta.deviceId = uid();
-  for (const k of ['events', 'todos', 'accounts', 'transactions', 'debts', 'bio']) {
+  for (const k of ['events', 'todos', 'accounts', 'transactions', 'debts', 'bio', 'trash']) {
     if (!Array.isArray(merged[k])) merged[k] = [];
+  }
+  merged.trash = merged.trash.filter((t) => Date.now() - (t.deletedAt || 0) < TRASH_TTL_MS);
+
+  // Kontostände werden gerechnet statt gespeichert. Alte Daten einmalig
+  // umrechnen, damit der angezeigte Stand exakt gleich bleibt.
+  for (const acc of merged.accounts) {
+    if (acc.startBalance === undefined) {
+      const moves = merged.transactions.reduce(
+        (sum, t) => (t.accountId === acc.id ? sum + (Number(t.amount) || 0) : sum), 0,
+      );
+      acc.startBalance = (Number(acc.balance) || 0) - moves;
+    }
+    delete acc.balance;
   }
   if (typeof merged.budgets !== 'object' || !merged.budgets) merged.budgets = {};
   merged.schema = SCHEMA;
@@ -221,6 +239,65 @@ function stripSecrets(integrations) {
   return out;
 }
 
+/* ---------- Papierkorb ---------- */
+
+const TRASH_LABELS = {
+  events: 'Termin', todos: 'Aufgabe', accounts: 'Konto',
+  transactions: 'Buchung', debts: 'Schuld', bio: 'Vitalwerte',
+};
+
+/** Verschiebt einen Eintrag in den Papierkorb, statt ihn wegzuwerfen. */
+function softDelete(coll, id) {
+  let removed = null;
+  store.update((s) => {
+    const idx = s[coll].findIndex((v) => (coll === 'bio' ? v.date : v.id) === id);
+    if (idx < 0) return;
+    removed = s[coll][idx];
+    s[coll].splice(idx, 1);
+    s.trash.unshift({
+      key: `${coll}:${id}:${Date.now()}`,
+      coll,
+      label: TRASH_LABELS[coll] || coll,
+      title: removed.title || removed.creditor || removed.name || removed.note || removed.date || '—',
+      item: removed,
+      deletedAt: Date.now(),
+    });
+    if (s.trash.length > 200) s.trash.length = 200;
+  });
+  return removed;
+}
+
+export const trash = {
+  list() {
+    return [...state.trash].sort((a, b) => b.deletedAt - a.deletedAt);
+  },
+  /** Holt einen Eintrag zurück; der Abgleich verteilt ihn wieder mit. */
+  restore(key) {
+    store.update((s) => {
+      const idx = s.trash.findIndex((t) => t.key === key);
+      if (idx < 0) return;
+      const entry = s.trash[idx];
+      s.trash.splice(idx, 1);
+      const list = s[entry.coll];
+      const idOf = (v) => (entry.coll === 'bio' ? v.date : v.id);
+      if (!list.some((v) => idOf(v) === idOf(entry.item))) list.push(entry.item);
+    });
+  },
+  /** Nimmt den zuletzt gelöschten Eintrag zurück. */
+  restoreLast() {
+    const first = trash.list()[0];
+    if (first) trash.restore(first.key);
+    return first;
+  },
+  purge(key) {
+    store.update((s) => { s.trash = s.trash.filter((t) => t.key !== key); });
+  },
+  empty() {
+    store.update((s) => { s.trash = []; });
+  },
+  get count() { return state.trash.length; },
+};
+
 /* ---------- Aktionen: Termine ---------- */
 
 export const events = {
@@ -233,9 +310,7 @@ export const events = {
       if (x) Object.assign(x, changes);
     });
   },
-  remove(id) {
-    store.update((s) => { s.events = s.events.filter((v) => v.id !== id); });
-  },
+  remove(id) { return softDelete('events', id); },
   sorted() {
     return [...state.events].sort((a, b) => String(a.date).localeCompare(String(b.date)));
   },
@@ -316,9 +391,7 @@ export const todos = {
       x.completedAt = x.done ? new Date().toISOString() : null;
     });
   },
-  remove(id) {
-    store.update((s) => { s.todos = s.todos.filter((v) => v.id !== id); });
-  },
+  remove(id) { return softDelete('todos', id); },
   open() { return state.todos.filter((t) => !t.done); },
   overdue() {
     const now = todayISO();
@@ -343,8 +416,34 @@ export const todos = {
 /* ---------- Aktionen: Finanzen ---------- */
 
 export const finance = {
+  /**
+   * Kontostand = Anfangsbestand + alle Buchungen.
+   *
+   * Früher wurde der Stand gespeichert und bei jeder Buchung angepasst.
+   * Das driftet, sobald zwei Geräte abgleichen: beide Buchungen kommen an,
+   * aber vom Konto überlebt nur eine Fassung — der Stand passt dann zu
+   * genau einer der beiden. Gerechnet stimmt er immer.
+   */
+  balanceOf(accountId) {
+    const acc = state.accounts.find((a) => a.id === accountId);
+    if (!acc) return 0;
+    const moves = state.transactions.reduce(
+      (sum, t) => (t.accountId === accountId ? sum + (Number(t.amount) || 0) : sum), 0,
+    );
+    return (Number(acc.startBalance) || 0) + moves;
+  },
+
+  assets() {
+    return state.accounts.reduce((a, acc) => a + finance.balanceOf(acc.id), 0);
+  },
+
   addAccount(a) {
-    store.update((s) => s.accounts.push({ id: uid(), name: 'Konto', type: 'Giro', balance: 0, ...a }));
+    const { balance, ...rest } = a || {};
+    store.update((s) => s.accounts.push({
+      id: uid(), name: 'Konto', type: 'Giro',
+      startBalance: Number(balance ?? rest.startBalance ?? 0),
+      ...rest,
+    }));
   },
   patchAccount(id, changes) {
     store.update((s) => {
@@ -354,28 +453,17 @@ export const finance = {
   },
   removeAccount(id) {
     store.update((s) => {
-      s.accounts = s.accounts.filter((v) => v.id !== id);
       s.transactions = s.transactions.map((t) => (t.accountId === id ? { ...t, accountId: null } : t));
     });
+    softDelete('accounts', id);
   },
   addTx(t) {
     store.update((s) => {
       const tx = { id: uid(), date: todayISO(), amount: 0, category: 'Sonstiges', note: '', accountId: s.accounts[0]?.id || null, ...t };
       s.transactions.push(tx);
-      const acc = s.accounts.find((a) => a.id === tx.accountId);
-      if (acc) acc.balance = Number(acc.balance || 0) + Number(tx.amount || 0);
     });
   },
-  removeTx(id) {
-    store.update((s) => {
-      const tx = s.transactions.find((v) => v.id === id);
-      if (tx) {
-        const acc = s.accounts.find((a) => a.id === tx.accountId);
-        if (acc) acc.balance = Number(acc.balance || 0) - Number(tx.amount || 0);
-      }
-      s.transactions = s.transactions.filter((v) => v.id !== id);
-    });
-  },
+  removeTx(id) { softDelete('transactions', id); },
   setBudget(cat, limit) {
     store.update((s) => {
       if (!limit) delete s.budgets[cat];
@@ -386,9 +474,8 @@ export const finance = {
     return state.transactions.filter((t) => String(t.date).slice(0, 7) === mk);
   },
   netWorth() {
-    const assets = state.accounts.reduce((a, b) => a + Number(b.balance || 0), 0);
     const debt = state.debts.reduce((a, b) => a + Number(b.remaining || 0), 0);
-    return assets - debt;
+    return finance.assets() - debt;
   },
 };
 
@@ -407,9 +494,7 @@ export const debts = {
       if (x) Object.assign(x, changes);
     });
   },
-  remove(id) {
-    store.update((s) => { s.debts = s.debts.filter((v) => v.id !== id); });
-  },
+  remove(id) { return softDelete('debts', id); },
   /** Zahlung erfassen; optional als Transaktion in den Finanzen buchen. */
   pay(id, amount, date, alsoBook = true) {
     store.update((s) => {
@@ -420,10 +505,10 @@ export const debts = {
       d.payments.push({ date: date || todayISO(), amount: amt });
       d.remaining = Math.max(0, Number(d.remaining || 0) - amt);
       if (alsoBook) {
-        const tx = { id: uid(), date: date || todayISO(), amount: -amt, category: 'Schuldenrate', note: `Rate: ${d.creditor}`, accountId: s.accounts[0]?.id || null, debtId: d.id };
-        s.transactions.push(tx);
-        const acc = s.accounts.find((a) => a.id === tx.accountId);
-        if (acc) acc.balance = Number(acc.balance || 0) - amt;
+        s.transactions.push({
+          id: uid(), date: date || todayISO(), amount: -amt, category: 'Schuldenrate',
+          note: `Rate: ${d.creditor}`, accountId: s.accounts[0]?.id || null, debtId: d.id,
+        });
       }
     });
   },
@@ -492,9 +577,7 @@ export const bio = {
       }
     });
   },
-  remove(date) {
-    store.update((s) => { s.bio = s.bio.filter((b) => b.date !== date); });
-  },
+  remove(date) { return softDelete('bio', date); },
   sorted() { return [...state.bio].sort((a, b) => a.date.localeCompare(b.date)); },
   latest() { return bio.sorted().slice(-1)[0] || null; },
   range(days) {

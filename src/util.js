@@ -280,10 +280,22 @@ export function colorFor(key) {
 
 /* ---------- Toast ---------- */
 
-export function toast(msg, kind = '') {
+/**
+ * @param {string} msg
+ * @param {string} kind  good | warn | bad
+ * @param {{label:string, onClick:Function}} [action]  z. B. Rückgängig
+ */
+export function toast(msg, kind = '', action = null) {
   const root = document.getElementById('toast-root');
   if (!root) return;
   const el = h('div', { class: `toast ${kind ? 'is-' + kind : ''}` }, msg);
+  if (action) {
+    el.appendChild(h('button', {
+      class: 'toast__action',
+      type: 'button',
+      onclick: () => { el.remove(); action.onClick(); },
+    }, action.label));
+  }
   root.appendChild(el);
   setTimeout(() => {
     el.style.transition = 'opacity .3s, transform .3s';

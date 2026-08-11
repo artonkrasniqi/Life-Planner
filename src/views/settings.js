@@ -3,7 +3,7 @@
    ============================================================ */
 
 import { h, icon, download, pickFile, toast, fmtDate, todayISO } from '../util.js';
-import { store, debts } from '../store.js';
+import { store, debts, trash } from '../store.js';
 import { panel, viewHead, field } from '../ui/widgets.js';
 import { confirmModal } from '../ui/modal.js';
 import { buildSeed } from '../seed.js';
@@ -176,6 +176,47 @@ export function render() {
     )),
   );
 
+  /* ---------- Papierkorb ---------- */
+  const trashItems = trash.list();
+  const trashPanel = panel({
+    title: 'Papierkorb',
+    sub: trashItems.length ? `${trashItems.length} Einträge · 30 Tage` : 'leer',
+    pad0: true,
+    tools: trashItems.length
+      ? h('button', {
+          class: 'btn btn--sm btn--danger',
+          onclick: async () => {
+            const ok = await confirmModal({
+              title: 'Papierkorb leeren',
+              message: `${trashItems.length} Einträge endgültig entfernen?`,
+              confirmLabel: 'Endgültig löschen', danger: true,
+            });
+            if (ok) { trash.empty(); toast('Papierkorb geleert.', 'warn'); }
+          },
+        }, 'Leeren')
+      : null,
+  },
+    trashItems.length
+      ? h('div', { class: 'list' }, trashItems.slice(0, 40).map((t) => h('div', { class: 'item' },
+          h('div', { class: 'item__main' },
+            h('div', { class: 'item__title' }, t.title),
+            h('div', { class: 'item__meta' },
+              h('span', { class: 'tag' }, t.label),
+              h('span', {}, new Date(t.deletedAt).toLocaleString('de-DE')),
+            ),
+          ),
+          h('div', { class: 'item__actions' },
+            h('button', {
+              class: 'btn btn--sm',
+              onclick: () => { trash.restore(t.key); toast('Wiederhergestellt.', 'good'); },
+            }, 'Zurückholen'),
+          ),
+        )))
+      : h('div', { style: { padding: '0 16px 16px' } },
+          h('div', { class: 'panel__sub', style: { textTransform: 'none', letterSpacing: '.02em', lineHeight: '1.6' } },
+            'Gelöschtes landet hier und bleibt 30 Tage lang wiederherstellbar. Direkt nach dem Löschen geht es auch über „Rückgängig“ in der Einblendung unten rechts.')),
+  );
+
   /* ---------- Synchronisierung ---------- */
   const syncPanel = buildSyncPanel();
 
@@ -228,7 +269,7 @@ export function render() {
   );
 
   frag.appendChild(h('div', { class: 'grid grid--main' },
-    h('div', { class: 'stack' }, syncPanel, googlePanel, whoopPanel, profilePanel, backupPanel, dataPanel),
+    h('div', { class: 'stack' }, syncPanel, googlePanel, whoopPanel, profilePanel, backupPanel, trashPanel, dataPanel),
     h('div', { class: 'stack' }, syntaxPanel, keysPanel, aboutPanel),
   ));
 

@@ -9,6 +9,8 @@ const DT = (n, hhmm) => `${D(n)}T${hhmm}`;
 
 export function buildSeed() {
   const accounts = [
+    // `balance` = heutiger Stand; die Migration rechnet daraus den
+    // Anfangsbestand zurück, sobald die Buchungen dazukommen.
     { id: uid(), name: 'Girokonto', type: 'Giro', balance: 3240.55 },
     { id: uid(), name: 'Tagesgeld', type: 'Sparen', balance: 8100.0 },
     { id: uid(), name: 'Bargeld', type: 'Bar', balance: 180.0 },

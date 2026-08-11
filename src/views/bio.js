@@ -5,7 +5,7 @@
 import {
   h, icon, num, todayISO, fmtDate, lastNDays, pickFile, toast, download, COLORS,
 } from '../util.js';
-import { store, bio } from '../store.js';
+import { store, bio, trash } from '../store.js';
 import { panel, kpi, viewHead, empty, iconButton, chip } from '../ui/widgets.js';
 import { formModal, confirmModal } from '../ui/modal.js';
 import { barChart, lineChart, gauge, sparkline, legend } from '../charts.js';
@@ -214,10 +214,9 @@ export function render() {
       ),
       h('div', { class: 'item__actions' },
         iconButton('edit', 'Bearbeiten', () => openBioForm(b), 'iconbtn--sm'),
-        iconButton('trash', 'Löschen', async () => {
-          if (await confirmModal({ title: 'Eintrag löschen', message: `Werte vom ${fmtDate(b.date)} löschen?`, confirmLabel: 'Löschen', danger: true })) {
-            bio.remove(b.date);
-          }
+        iconButton('trash', 'Löschen', () => {
+          bio.remove(b.date);
+          toast(`Werte vom ${fmtDate(b.date)} gelöscht`, 'warn', { label: 'Rückgängig', onClick: () => trash.restoreLast() });
         }, 'iconbtn--sm iconbtn--danger'),
       ),
     ))),

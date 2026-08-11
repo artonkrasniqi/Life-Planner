@@ -4,9 +4,9 @@
 
 import {
   h, icon, money, num, todayISO, fmtDate, MONTHS, MONTHS_SHORT,
-  colorFor, sum, groupBy, addMonths, COLORS,
+  colorFor, sum, groupBy, addMonths, COLORS, toast,
 } from '../util.js';
-import { store, finance, CATEGORIES } from '../store.js';
+import { store, finance, trash, CATEGORIES } from '../store.js';
 import { panel, kpi, viewHead, empty, iconButton, progressBar, chip } from '../ui/widgets.js';
 import { formModal, confirmModal } from '../ui/modal.js';
 import { barChart, donutChart, legend, hexA } from '../charts.js';
@@ -28,7 +28,7 @@ export function render() {
   const income = sum(tx.filter((t) => t.amount > 0), (t) => t.amount);
   const expense = -sum(tx.filter((t) => t.amount < 0), (t) => t.amount);
   const net = income - expense;
-  const assets = sum(s.accounts, (a) => a.balance);
+  const assets = finance.assets();
   const savingRate = income > 0 ? (net / income) * 100 : 0;
 
   frag.appendChild(viewHead(
@@ -143,7 +143,10 @@ export function render() {
             h('div', { class: 'item__title' }, a.name),
             h('div', { class: 'item__meta' }, h('span', {}, a.type)),
           ),
-          h('span', { style: { fontFamily: 'var(--font-mono)', fontWeight: '700', color: a.balance >= 0 ? 'var(--cyan-2)' : 'var(--red)' } }, money(a.balance, cur)),
+          (() => {
+            const bal = finance.balanceOf(a.id);
+            return h('span', { style: { fontFamily: 'var(--font-mono)', fontWeight: '700', color: bal >= 0 ? 'var(--cyan-2)' : 'var(--red)' } }, money(bal, cur));
+          })(),
           h('div', { class: 'item__actions' },
             iconButton('edit', 'Bearbeiten', () => openAccountForm(a), 'iconbtn--sm'),
             iconButton('trash', 'Löschen', async () => {
@@ -190,10 +193,9 @@ function txRow(t, cur, s) {
     ),
     h('span', { class: 'tx__cat tag', style: { borderColor: hexA(colorFor(t.category), 0.4), color: colorFor(t.category), background: hexA(colorFor(t.category), 0.1) } }, t.category),
     h('span', { class: `tx__amt ${t.amount >= 0 ? 'pos' : 'neg'}` }, (t.amount >= 0 ? '+' : '') + money(t.amount, cur)),
-    iconButton('trash', 'Buchung löschen', async () => {
-      if (await confirmModal({ title: 'Buchung löschen', message: `„${t.note || t.category}“ (${money(t.amount, cur)}) löschen? Der Kontostand wird korrigiert.`, confirmLabel: 'Löschen', danger: true })) {
-        finance.removeTx(t.id);
-      }
+    iconButton('trash', 'Buchung löschen', () => {
+      finance.removeTx(t.id);
+      toast(`Buchung gelöscht: ${t.note || t.category}`, 'warn', { label: 'Rückgängig', onClick: () => trash.restoreLast() });
     }, 'iconbtn--sm iconbtn--danger'),
   );
 }
@@ -238,7 +240,11 @@ export async function openAccountForm(existing = null) {
     fields: [
       { name: 'name', label: 'Bezeichnung', type: 'text', value: existing?.name || '', required: true },
       { name: 'type', label: 'Typ', type: 'select', options: ['Giro', 'Sparen', 'Bar', 'Depot', 'Sonstiges'], value: existing?.type || 'Giro' },
-      { name: 'balance', label: 'Kontostand', type: 'money', value: existing?.balance ?? 0, full: true },
+      {
+        name: 'startBalance', label: 'Anfangsbestand', type: 'money',
+        value: existing?.startBalance ?? 0, full: true,
+        hint: 'Der angezeigte Kontostand ergibt sich daraus plus allen Buchungen.',
+      },
     ],
   });
   if (!values) return;

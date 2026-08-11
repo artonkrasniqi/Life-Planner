@@ -19,7 +19,7 @@ export const SYNC_COLLECTIONS = ['events', 'todos', 'accounts', 'transactions', 
 export const SYNC_FIELDS = ['profile', 'budgets'];
 
 /** Nicht synchronisiert: gerätelokal oder geheim. */
-export const LOCAL_ONLY = ['ui', 'sync', 'integrations'];
+export const LOCAL_ONLY = ['ui', 'sync', 'integrations', 'trash'];
 
 /** Grabsteine älter als das hier werden beim Laden verworfen. */
 const TOMBSTONE_TTL_MS = 120 * 24 * 3600 * 1000;
@@ -78,9 +78,10 @@ export function stampChanges(state, baseline, now = Date.now()) {
         item.updatedAt = now;
         changed = true;
       }
-      // Wiederauferstanden: ein alter Grabstein darf nicht mehr greifen.
-      const tk = tombKey(coll, key);
-      if (state.meta.tombstones[tk] && !(tk in prev)) delete state.meta.tombstones[tk];
+      // Was da ist, braucht keinen Grabstein — sonst würde ein Eintrag,
+      // der aus dem Papierkorb zurückgeholt wurde, beim nächsten Abgleich
+      // gleich wieder verschwinden.
+      delete state.meta.tombstones[tombKey(coll, key)];
     }
 
     for (const key of Object.keys(prev)) {

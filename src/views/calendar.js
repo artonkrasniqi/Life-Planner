@@ -4,9 +4,9 @@
 
 import {
   h, icon, todayISO, toISODate, monthMatrix, MONTHS, WEEKDAYS,
-  fmtDate, fmtTime, hasTime, relativeDay, colorFor, toISODateTime, parseLocal, addMonths,
+  fmtDate, fmtTime, hasTime, relativeDay, colorFor, toISODateTime, parseLocal, addMonths, toast,
 } from '../util.js';
-import { store, events, CATEGORIES } from '../store.js';
+import { store, events, trash, CATEGORIES } from '../store.js';
 import { panel, viewHead, empty, iconButton, dot } from '../ui/widgets.js';
 import { formModal, confirmModal } from '../ui/modal.js';
 import { hexA } from '../charts.js';
@@ -149,10 +149,9 @@ function eventRow(e) {
     h('div', { class: 'item__actions' },
       iconButton(e.done ? 'refresh' : 'check', e.done ? 'Als offen markieren' : 'Als erledigt markieren', () => events.patch(e.id, { done: !e.done }), 'iconbtn--sm'),
       iconButton('edit', 'Bearbeiten', () => openEventForm(e), 'iconbtn--sm'),
-      iconButton('trash', 'Löschen', async () => {
-        if (await confirmModal({ title: 'Termin löschen', message: `„${e.title}“ wirklich löschen?`, confirmLabel: 'Löschen', danger: true })) {
-          events.remove(e.id);
-        }
+      iconButton('trash', 'Löschen', () => {
+        events.remove(e.id);
+        toast(`Termin gelöscht: ${e.title}`, 'warn', { label: 'Rückgängig', onClick: () => trash.restoreLast() });
       }, 'iconbtn--sm iconbtn--danger'),
     ),
   );

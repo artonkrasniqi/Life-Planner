@@ -2,8 +2,8 @@
    todos.js — Aufgaben mit Prioritäten, Fälligkeiten, Tags
    ============================================================ */
 
-import { h, icon, todayISO, relativeDay, fmtDate } from '../util.js';
-import { store, todos, PRIORITIES, priority } from '../store.js';
+import { h, icon, todayISO, relativeDay, fmtDate, toast } from '../util.js';
+import { store, todos, trash, PRIORITIES, priority } from '../store.js';
 import { panel, viewHead, empty, iconButton, chip, pill, progressBar } from '../ui/widgets.js';
 import { formModal, confirmModal } from '../ui/modal.js';
 import { refresh } from '../nav.js';
@@ -180,10 +180,9 @@ function todoRow(t) {
     ),
     h('div', { class: 'item__actions' },
       iconButton('edit', 'Bearbeiten', () => openTodoForm(t), 'iconbtn--sm'),
-      iconButton('trash', 'Löschen', async () => {
-        if (await confirmModal({ title: 'Aufgabe löschen', message: `„${t.title}“ wirklich löschen?`, confirmLabel: 'Löschen', danger: true })) {
-          todos.remove(t.id);
-        }
+      iconButton('trash', 'Löschen', () => {
+        todos.remove(t.id);
+        toast(`Aufgabe gelöscht: ${t.title}`, 'warn', { label: 'Rückgängig', onClick: () => trash.restoreLast() });
       }, 'iconbtn--sm iconbtn--danger'),
     ),
   );

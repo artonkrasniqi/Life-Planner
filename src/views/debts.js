@@ -9,9 +9,9 @@
 
 import {
   h, icon, money, maskMoney, num, todayISO, fmtDate, toISODate,
-  colorFor, MASK, MONTHS_SHORT, COLORS,
+  colorFor, MASK, MONTHS_SHORT, COLORS, toast,
 } from '../util.js';
-import { store, debts, payoffMonths, totalInterest, CATEGORIES } from '../store.js';
+import { store, debts, trash, payoffMonths, totalInterest, CATEGORIES } from '../store.js';
 import { panel, kpi, viewHead, empty, iconButton, progressBar, eyeButton, pill, dot } from '../ui/widgets.js';
 import { formModal, confirmModal } from '../ui/modal.js';
 import { barChart, donutChart, legend, hexA } from '../charts.js';
@@ -183,10 +183,9 @@ function debtCard(d, cur) {
       h('div', { class: 'row row--tight' },
         iconButton('plus', 'Zahlung erfassen', () => openPaymentForm(d), 'iconbtn--sm'),
         iconButton('edit', 'Bearbeiten', () => openDebtForm(d), 'iconbtn--sm'),
-        iconButton('trash', 'Löschen', async () => {
-          if (await confirmModal({ title: 'Schuld löschen', message: `„${d.creditor}“ wirklich entfernen?`, confirmLabel: 'Löschen', danger: true })) {
-            debts.remove(d.id);
-          }
+        iconButton('trash', 'Löschen', () => {
+          debts.remove(d.id);
+          toast(`Schuld entfernt: ${d.creditor}`, 'warn', { label: 'Rückgängig', onClick: () => trash.restoreLast() });
         }, 'iconbtn--sm iconbtn--danger'),
       ),
     ),
