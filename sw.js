@@ -10,7 +10,7 @@
    Antwort zu lange dauert. Offline funktioniert damit unverändert.
    ============================================================ */
 
-const VERSION = 'v7';
+const VERSION = 'v8';
 const NETWORK_TIMEOUT_MS = 3500;
 const CACHE = `life-os-${VERSION}`;
 

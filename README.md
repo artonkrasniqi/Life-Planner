@@ -174,7 +174,7 @@ Tastatur: `/` fokussiert die Zeile, `Enter` legt an, `⇧Enter` öffnet den voll
 | **Termine** | Google-Kalender-Spiegelung, Monatsraster + Tagesagenda, Kategorien mit Farbcodierung, Dauer, Ort, Notizen. Doppelklick auf einen Tag legt direkt einen Termin an |
 | **Aufgaben** | Prioritäten, Fälligkeiten, Tags, Filter, Auslastungsstatistik, Schnellerfassung mit Kurzsyntax |
 | **Finanzen** | Konten, Buchungen, Bankumsatz-Import, wiederkehrende Einträge, 12-Monats-Cashflow, Ausgabenstruktur als Donut, Budgets, Nettovermögen |
-| **Schulden** | Restschuld, Tilgungsfortschritt, Zinskosten, Restlaufzeit, Prognose über 36 Monate, Strategievergleich Avalanche/Snowball — **mit Auge zum Ein- und Ausblenden** |
+| **Schulden** | Restschuld, Tilgungsfortschritt, Zinskosten, Restlaufzeit, aufgeschobene Rückzahlung („Rückzahlung ab“), Prognose über 36 Monate, Strategievergleich Avalanche/Snowball — **mit Auge zum Ein- und Ausblenden** |
 | **Vitalwerte** | Recovery / Strain / Schlaf / HRV als Gauges, Verlaufsdiagramme, Kennzahlen mit Sparklines, Whoop- und Garmin-Import |
 | **System** | Synchronisierung, Profil, Backup exportieren/einspielen, Demo-Daten, Zurücksetzen |
 
@@ -221,6 +221,17 @@ Das Fadenkreuz oben rechts oder die Taste **S**. Sucht gleichzeitig in Terminen,
 Gelöschtes verschwindet nicht sofort, sondern liegt **30 Tage** im Papierkorb (**System → Papierkorb**). Direkt nach dem Löschen genügt **Rückgängig** in der Einblendung unten rechts.
 
 Der Papierkorb ist gerätelokal: Er ist die Sicherung *dieses* Geräts, keine geteilte Liste. Ein Zurückholen verteilt den Eintrag über den Abgleich wieder an die anderen Geräte.
+
+---
+
+## Wie die Schuldenrechnung gemeint ist
+
+Drei Angaben steuern alles: **Zinssatz**, **Monatsrate** und **Rückzahlung ab**.
+
+* **Zinskosten** sind nur echte Zinsen. Bei 0 % stehen dort 0 € — auch wenn die letzte Rate rechnerisch überzahlt (32 × 55 € = 1760 € auf 1745 € Restschuld). Die 15 € Differenz sind keine Zinsen, sondern nur die krumme Schlussrate.
+* **Rückzahlung ab** lässt man leer, wenn schon gezahlt wird. Steht dort ein Datum (BAföG etwa erst 2029), zählt die Zeit bis dahin als tilgungsfreie Phase: keine Rate, und die Monatslast auf der Kachel enthält diese Schuld noch nicht. Verzinste Schulden wachsen in dieser Zeit weiter, unverzinste bleiben stehen.
+* Der **rote Hinweis** „Rate deckt die Zinsen nicht“ erscheint ausschließlich, wenn die Rate kleiner ist als der monatliche Zins — dann wächst die Restschuld tatsächlich. Eine fehlende Rate ist kein Fehler und wird grau als Hinweis gezeigt; eine aufgeschobene Rückzahlung erscheint blau mit Startdatum.
+* **Restlaufzeit** und **Schuldenfrei** stehen auf `—`, solange sich das nicht berechnen lässt (keine Rate hinterlegt), und auf `nie` nur im echten Wachstumsfall.
 
 ---
 

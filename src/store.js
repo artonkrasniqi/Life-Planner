@@ -2,7 +2,7 @@
    store.js — Zustand, Persistenz (localStorage), Pub/Sub
    ============================================================ */
 
-import { uid, todayISO } from './util.js';
+import { uid, todayISO, parseLocal } from './util.js';
 import { buildBaseline, stampChanges, touchAll, pruneTombstones } from './sync/merge.js';
 import { materialize, newRule } from './recurring.js';
 
@@ -487,7 +487,7 @@ export const debts = {
   add(d) {
     store.update((s) => s.debts.push({
       id: uid(), creditor: 'Gläubiger', type: 'Kredit', principal: 0, remaining: 0,
-      rate: 0, minPayment: 0, startDate: todayISO(), payments: [], note: '', ...d,
+      rate: 0, minPayment: 0, startDate: todayISO(), repayFrom: '', payments: [], note: '', ...d,
     }));
   },
   patch(id, changes) {
@@ -516,7 +516,20 @@ export const debts = {
   },
   total() { return state.debts.reduce((a, b) => a + Number(b.remaining || 0), 0); },
   totalPrincipal() { return state.debts.reduce((a, b) => a + Number(b.principal || 0), 0); },
-  monthlyLoad() { return state.debts.reduce((a, b) => a + Number(b.minPayment || 0), 0); },
+  /** Was diesen Monat tatsächlich abfließt — aufgeschobene Schulden zählen nicht mit. */
+  monthlyLoad() {
+    return state.debts.reduce((a, b) => {
+      if (Number(b.remaining || 0) <= 0) return a;
+      if (monthsUntil(b.repayFrom) > 0) return a;
+      return a + Number(b.minPayment || 0);
+    }, 0);
+  },
+  /** Anzahl der Schulden, für die gerade eine Rate läuft. */
+  payingCount() {
+    return state.debts.filter((b) => Number(b.remaining || 0) > 0
+      && Number(b.minPayment || 0) > 0
+      && monthsUntil(b.repayFrom) === 0).length;
+  },
   toggleHidden() {
     store.update((s) => { s.ui.debtsHidden = !s.ui.debtsHidden; });
   },
@@ -536,10 +549,88 @@ export function payoffMonths(remaining, annualRatePct, monthlyPayment) {
 }
 
 /** Gesamte verbleibende Zinskosten bei aktueller Rate. */
+/**
+ * Zinskosten bis zur Tilgung.
+ *
+ * Bei 0 % sind sie 0 — auch wenn die letzte Rate rechnerisch überzahlt
+ * (32 × 55 € = 1760 € auf 1745 € Restschuld). Diese 15 € sind kein Zins,
+ * sondern nur die krumme Schlussrate.
+ */
 export function totalInterest(remaining, annualRatePct, monthlyPayment) {
-  const n = payoffMonths(remaining, annualRatePct, monthlyPayment);
+  const rate = Number(annualRatePct) || 0;
+  if (rate <= 0) return 0;
+  const n = payoffMonths(remaining, rate, monthlyPayment);
   if (!isFinite(n)) return Infinity;
   return Math.max(0, n * (Number(monthlyPayment) || 0) - (Number(remaining) || 0));
+}
+
+/** Ganze Monate von heute bis zu einem Datum; 0, wenn es schon erreicht ist. */
+export function monthsUntil(iso, now = new Date()) {
+  if (!iso) return 0;
+  const target = parseLocal(iso);
+  if (!target || target <= now) return 0;
+  let months = (target.getFullYear() - now.getFullYear()) * 12 + (target.getMonth() - now.getMonth());
+  if (target.getDate() < now.getDate()) months -= 1;
+  return Math.max(0, months);
+}
+
+export function addMonthsDate(date, n) {
+  const d = new Date(date);
+  d.setMonth(d.getMonth() + (isFinite(n) ? n : 0));
+  return d;
+}
+
+/**
+ * Gesamtbild einer Schuld — an einer Stelle, damit Karte, Kennzahlen und
+ * Prognose dieselbe Aussage treffen.
+ *
+ * Unterschieden wird ausdrücklich zwischen „wächst“ (Rate deckt die Zinsen
+ * nicht) und „keine Rate hinterlegt“. Das ist nicht dasselbe: ohne Zinsen
+ * wächst nichts, es dauert nur unbegrenzt.
+ *
+ * @returns {{status:string, monthsUntilStart:number, payoffMonths:number,
+ *            payoffDate:Date|null, interestTotal:number}}
+ */
+export function debtOutlook(d, now = new Date()) {
+  const remaining = Number(d.remaining) || 0;
+  const rate = Number(d.rate) || 0;
+  const pay = Number(d.minPayment) || 0;
+  const i = rate / 100 / 12;
+  const wait = monthsUntil(d.repayFrom, now);
+
+  if (remaining <= 0) {
+    return { status: 'paid', monthsUntilStart: 0, payoffMonths: 0, payoffDate: null, interestTotal: 0 };
+  }
+
+  // Während einer tilgungsfreien Zeit laufen Zinsen weiter, es wird aber
+  // nicht gezahlt. Bei 0 % passiert in dieser Zeit schlicht nichts.
+  const atStart = i > 0 ? remaining * Math.pow(1 + i, wait) : remaining;
+
+  if (pay <= 0) {
+    return {
+      status: wait > 0 ? 'waiting' : 'noPayment',
+      monthsUntilStart: wait,
+      payoffMonths: Infinity,
+      payoffDate: null,
+      interestTotal: rate > 0 ? Infinity : 0,
+    };
+  }
+
+  const n = payoffMonths(atStart, rate, pay);
+  if (!isFinite(n)) {
+    return {
+      status: 'growing', monthsUntilStart: wait,
+      payoffMonths: Infinity, payoffDate: null, interestTotal: Infinity,
+    };
+  }
+
+  return {
+    status: wait > 0 ? 'waiting' : 'ok',
+    monthsUntilStart: wait,
+    payoffMonths: wait + n,
+    payoffDate: addMonthsDate(now, wait + n),
+    interestTotal: rate > 0 ? Math.max(0, n * pay - remaining) : 0,
+  };
 }
 
 /* ---------- Aktionen: Biometrie (Whoop / Garmin) ---------- */

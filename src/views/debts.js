@@ -11,7 +11,7 @@ import {
   h, icon, money, maskMoney, num, todayISO, fmtDate, toISODate,
   colorFor, MASK, MONTHS_SHORT, COLORS, toast,
 } from '../util.js';
-import { store, debts, trash, payoffMonths, totalInterest, CATEGORIES } from '../store.js';
+import { store, debts, trash, debtOutlook, addMonthsDate, monthsUntil, CATEGORIES } from '../store.js';
 import { panel, kpi, viewHead, empty, iconButton, progressBar, eyeButton, pill, dot } from '../ui/widgets.js';
 import { formModal, confirmModal } from '../ui/modal.js';
 import { barChart, donutChart, legend, hexA } from '../charts.js';
@@ -26,6 +26,8 @@ export function render() {
   const principal = debts.totalPrincipal();
   const paid = Math.max(0, principal - total);
   const monthly = debts.monthlyLoad();
+  const paying = debts.payingCount();
+  const deferred = list.filter((d) => debtOutlook(d).monthsUntilStart > 0).length;
   const progress = principal > 0 ? paid / principal : 0;
 
   const m = (v) => maskMoney(v, hidden, cur);
@@ -59,7 +61,8 @@ export function render() {
     kpi({
       label: 'Monatslast', iconName: 'clock',
       value: m(monthly), valueClass: hidden ? 'masked' : 'is-gold',
-      foot: hidden ? 'verborgen' : `${list.length} Raten pro Monat`,
+      foot: hidden ? 'verborgen'
+        : `${paying} ${paying === 1 ? 'Rate' : 'Raten'} pro Monat${deferred ? ` · ${deferred} später fällig` : ''}`,
     }),
     kpi({
       label: 'Schuldenfrei in', iconName: 'target',
@@ -157,8 +160,8 @@ export function render() {
 function debtCard(d, cur) {
   const paid = Math.max(0, (d.principal || 0) - (d.remaining || 0));
   const frac = d.principal ? paid / d.principal : 0;
-  const months = payoffMonths(d.remaining, d.rate, d.minPayment);
-  const interest = totalInterest(d.remaining, d.rate, d.minPayment);
+  const out = debtOutlook(d);
+  const months = out.payoffMonths;
   const col = colorFor(d.creditor);
   const payments = (d.payments || []).slice(-3).reverse();
 
@@ -197,18 +200,50 @@ function debtCard(d, cur) {
       progressBar(frac, frac > 0.66 ? 'is-green' : frac > 0.33 ? 'is-gold' : 'is-red'),
     ),
     h('div', { class: 'row', style: { marginTop: '12px', gap: '18px' } },
-      metric('Restlaufzeit', isFinite(months) ? `${months} Mon.` : '∞', isFinite(months) ? null : 'var(--red)'),
-      metric('Schuldenfrei', isFinite(months) ? fmtDate(toISODate(addMonthsDate(new Date(), months)), { month: 'short', year: 'numeric' }) : 'nie', isFinite(months) ? null : 'var(--red)'),
-      metric('Zinskosten', isFinite(interest) ? money(interest, cur, { decimals: 0 }) : '∞', 'var(--gold-2)'),
+      metric('Restlaufzeit', isFinite(months) ? `${months} Mon.` : '—', out.status === 'growing' ? 'var(--red)' : null),
+      metric('Schuldenfrei', out.payoffDate
+        ? fmtDate(toISODate(out.payoffDate), { month: 'short', year: 'numeric' })
+        : (out.status === 'growing' ? 'nie' : '—'),
+        out.status === 'growing' ? 'var(--red)' : null),
+      metric('Zinskosten', out.interestTotal === Infinity ? '∞' : money(out.interestTotal, cur, { decimals: 0 }),
+        out.interestTotal > 0 ? 'var(--gold-2)' : null),
       payments.length ? metric('Letzte Zahlung', `${money(payments[0].amount, cur, { decimals: 0 })} · ${fmtDate(payments[0].date, { day: '2-digit', month: '2-digit' })}`) : null,
     ),
-    !isFinite(months)
-      ? h('div', { class: 'row', style: { marginTop: '10px', color: 'var(--red)', fontSize: '12px' } },
-          h('span', { html: icon('alert', 14) }),
-          h('span', {}, 'Die Rate deckt die Zinsen nicht — Restschuld wächst.'),
-        )
-      : null,
+    debtNotice(d, out),
   );
+}
+
+/**
+ * Hinweiszeile unter einer Schuld.
+ *
+ * Drei Fälle, die früher alle als roter Fehler erschienen sind, obwohl nur
+ * einer davon einer ist:
+ *   growing   — die Rate ist kleiner als der monatliche Zins. Echter Alarm.
+ *   waiting   — die Rückzahlung beginnt erst später (BAföG). Reine Information.
+ *   noPayment — es ist schlicht keine Rate hinterlegt. Auch kein Fehler.
+ */
+function debtNotice(d, out) {
+  if (out.status === 'growing') {
+    return h('div', { class: 'row', style: { marginTop: '10px', color: 'var(--red)', fontSize: '12px' } },
+      h('span', { html: icon('alert', 14) }),
+      h('span', {}, 'Die Rate deckt die Zinsen nicht — Restschuld wächst.'),
+    );
+  }
+  if (out.status === 'waiting') {
+    const start = fmtDate(d.repayFrom, { month: 'long', year: 'numeric' });
+    const tail = out.monthsUntilStart > 0 ? ` (in ${out.monthsUntilStart} Mon.)` : '';
+    return h('div', { class: 'row', style: { marginTop: '10px', color: 'var(--cyan)', fontSize: '12px' } },
+      h('span', { html: icon('clock', 14) }),
+      h('span', {}, `Rückzahlung beginnt ${start}${tail} — bis dahin fällt keine Rate an.`),
+    );
+  }
+  if (out.status === 'noPayment') {
+    return h('div', { class: 'row', style: { marginTop: '10px', color: 'var(--muted)', fontSize: '12px' } },
+      h('span', { html: icon('info', 14) }),
+      h('span', {}, 'Keine Monatsrate hinterlegt — Restlaufzeit lässt sich nicht berechnen.'),
+    );
+  }
+  return null;
 }
 
 function metric(k, v, color) {
@@ -251,9 +286,16 @@ function strategyPanel(list, cur) {
    Prognose der Gesamtrestschuld
    ------------------------------------------------------------ */
 function projectTotals(list, months) {
-  const state = list.map((d) => ({ rem: Number(d.remaining) || 0, i: (Number(d.rate) || 0) / 100 / 12, pay: Number(d.minPayment) || 0 }));
-  const out = [];
   const now = new Date();
+  // „wait" = Monate bis zum Beginn der Rückzahlung. Solange gezählt wird,
+  // fließt keine Rate; Zinsen laufen aber weiter (bei 0 % also gar nichts).
+  const state = list.map((d) => ({
+    rem: Number(d.remaining) || 0,
+    i: (Number(d.rate) || 0) / 100 / 12,
+    pay: Number(d.minPayment) || 0,
+    wait: monthsUntil(d.repayFrom, now),
+  }));
+  const out = [];
   for (let mth = 0; mth <= months; mth += 3) {
     const idx = now.getMonth() + mth;
     const label = `${MONTHS_SHORT[idx % 12]} ${String((now.getFullYear() + Math.floor(idx / 12)) % 100).padStart(2, '0')}`;
@@ -261,36 +303,38 @@ function projectTotals(list, months) {
     for (let k = 0; k < 3; k++) {
       for (const d of state) {
         if (d.rem <= 0) continue;
-        d.rem = Math.max(0, d.rem * (1 + d.i) - d.pay);
+        const pay = d.wait > 0 ? 0 : d.pay;
+        if (d.wait > 0) d.wait -= 1;
+        d.rem = Math.max(0, d.rem * (1 + d.i) - pay);
       }
     }
   }
   return out;
 }
 
-function addMonthsDate(date, n) {
-  const d = new Date(date);
-  d.setMonth(d.getMonth() + (isFinite(n) ? n : 0));
-  return d;
+/** Längste Restlaufzeit über alle Schulden — Infinity, wenn eine offen bleibt. */
+function longestPayoff(list) {
+  return list.reduce((acc, d) => {
+    const m = debtOutlook(d).payoffMonths;
+    return Math.max(acc, isFinite(m) ? m : Infinity);
+  }, 0);
 }
 
 function freedomLabel(list) {
-  const maxMonths = list.reduce((acc, d) => {
-    const m = payoffMonths(d.remaining, d.rate, d.minPayment);
-    return Math.max(acc, isFinite(m) ? m : Infinity);
-  }, 0);
-  if (!isFinite(maxMonths)) return 'nie';
+  const maxMonths = longestPayoff(list);
+  if (!isFinite(maxMonths)) return 'offen';
   if (maxMonths === 0) return 'jetzt';
   const y = Math.floor(maxMonths / 12), mm = maxMonths % 12;
   return y ? `${y} J ${mm} M` : `${mm} Monate`;
 }
 
 function freedomFoot(list) {
-  const maxMonths = list.reduce((acc, d) => {
-    const m = payoffMonths(d.remaining, d.rate, d.minPayment);
-    return Math.max(acc, isFinite(m) ? m : Infinity);
-  }, 0);
-  if (!isFinite(maxMonths)) return 'Rate deckt Zinsen nicht';
+  const maxMonths = longestPayoff(list);
+  if (!isFinite(maxMonths)) {
+    // Warum unbestimmt? Nur echtes Wachstum ist ein Warnsignal.
+    const growing = list.some((d) => debtOutlook(d).status === 'growing');
+    return growing ? 'Rate deckt Zinsen nicht' : 'ohne Rate nicht berechenbar';
+  }
   const d = addMonthsDate(new Date(), maxMonths);
   return `voraussichtlich ${d.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}`;
 }
@@ -311,6 +355,7 @@ export async function openDebtForm(existing = null) {
       { name: 'remaining', label: 'Restschuld', type: 'money', value: existing?.remaining ?? 0 },
       { name: 'minPayment', label: 'Monatsrate', type: 'money', value: existing?.minPayment ?? 0 },
       { name: 'startDate', label: 'Beginn', type: 'date', value: existing?.startDate || todayISO() },
+      { name: 'repayFrom', label: 'Rückzahlung ab', type: 'date', value: existing?.repayFrom || '', hint: 'leer = läuft bereits (z. B. BAföG erst ab 2029)' },
       { name: 'note', label: 'Notiz', type: 'text', value: existing?.note || '', full: true },
     ],
   });
