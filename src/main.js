@@ -12,6 +12,7 @@ import { buildSeed } from './seed.js';
 import { mountQuickbar, focusQuickbar } from './ui/quickbar.js';
 import { startSync, runSync, onSyncStatus, syncStatus, isConfigured } from './sync/engine.js';
 import { whoopConn } from './integrations/connections.js';
+import { BUILD } from './build.js';
 
 import * as dashboard from './views/dashboard.js';
 import * as calendar from './views/calendar.js';
@@ -124,7 +125,7 @@ function renderRail() {
 
   rail.appendChild(h('div', { class: 'rail__foot' },
     h('div', {}, 'L.I.F.E. OS v1.0'),
-    h('div', { style: { marginTop: '3px', opacity: '.7' } }, 'lokal · offline · privat'),
+    h('div', { style: { marginTop: '3px', opacity: '.7' } }, BUILD),
   ));
 }
 

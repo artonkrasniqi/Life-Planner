@@ -11,6 +11,7 @@ import { providers, makePairingCode, readPairingCode } from '../sync/providers.j
 import { runSync, connectSync, disconnectSync, syncStatus } from '../sync/engine.js';
 import { cryptoAvailable } from '../sync/crypto.js';
 import { connectionsPanels } from '../ui/connections-panel.js';
+import { BUILD } from '../build.js';
 import { refresh } from '../nav.js';
 
 /* Entwurf der Verbindungsdaten — landet erst beim Verbinden im Zustand,
@@ -198,10 +199,32 @@ export function render() {
       'Termine, Aufgaben, Finanzen, Schulden und Biometrie in einem HUD.'),
     h('div', { class: 'row', style: { marginTop: '6px' } },
       h('span', { class: 'pill pill--cyan' }, 'v1.0'),
+      h('span', { class: 'pill pill--gold' }, BUILD),
       h('span', { class: 'pill pill--muted' }, 'localStorage'),
-      h('span', { class: 'pill pill--gold' }, 'Whoop-Import'),
-      h('span', { class: 'pill pill--violet' }, 'Garmin vorbereitet'),
+      h('span', { class: 'pill pill--muted' }, 'Whoop · Google'),
     ),
+    h('div', { class: 'panel__sub', style: { textTransform: 'none', letterSpacing: '.02em', lineHeight: '1.6', borderTop: '1px solid var(--line)', paddingTop: '10px' } },
+      'Zeigt die App eine alte Fassung, leert dieser Knopf den Zwischenspeicher und lädt sie frisch. Deine Daten bleiben dabei unberührt.'),
+    h('button', {
+      class: 'btn btn--gold',
+      onclick: async () => {
+        toast('Lade neu \u2026');
+        try {
+          if ('serviceWorker' in navigator) {
+            const regs = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(regs.map((r) => r.unregister()));
+          }
+          if (window.caches) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((k) => caches.delete(k)));
+          }
+        } catch (e) {
+          console.warn('[L.I.F.E. OS] Cache-Reinigung:', e);
+        }
+        location.reload(true);
+      },
+      html: icon('refresh', 13) + '<span>Neu laden erzwingen</span>',
+    }),
   );
 
   frag.appendChild(h('div', { class: 'grid grid--main' },

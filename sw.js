@@ -1,12 +1,17 @@
 /* ============================================================
    sw.js — Service Worker
 
-   Strategie: stale-while-revalidate. Die App startet sofort aus
-   dem Cache (auch offline) und aktualisiert sich im Hintergrund;
-   die neue Fassung ist beim nächsten Öffnen aktiv.
+   Strategie: Netz zuerst, Cache als Rückfall.
+
+   Vorher galt "Cache zuerst" — das war ein Fehlgriff: die App zeigte
+   nach einer Aktualisierung noch tagelang den alten Stand, weil der
+   Cache immer gewann. Jetzt wird online immer die aktuelle Fassung
+   geholt; der Cache springt nur ein, wenn kein Netz da ist oder die
+   Antwort zu lange dauert. Offline funktioniert damit unverändert.
    ============================================================ */
 
-const VERSION = 'v3';
+const VERSION = 'v4';
+const NETWORK_TIMEOUT_MS = 3500;
 const CACHE = `life-os-${VERSION}`;
 
 const ASSETS = [
@@ -85,19 +90,22 @@ self.addEventListener('fetch', (event) => {
 
   event.respondWith((async () => {
     const cache = await caches.open(CACHE);
-    const cached = await cache.match(req, { ignoreSearch: false });
 
+    // Zu langsames Netz soll den Start nicht blockieren — nach ein paar
+    // Sekunden übernimmt der Cache.
+    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), NETWORK_TIMEOUT_MS));
     const network = fetch(req).then((res) => {
       if (res && res.ok && res.type === 'basic') cache.put(req, res.clone());
       return res;
     }).catch(() => null);
 
-    if (cached) return cached;
-
-    const fresh = await network;
+    const fresh = await Promise.race([network, timeout]);
     if (fresh) return fresh;
 
-    // Offline und nicht im Cache: bei Navigationen die Startseite liefern.
+    const cached = await cache.match(req, { ignoreSearch: false });
+    if (cached) return cached;
+
+    // Weder Netz noch Cache: bei Navigationen die Startseite liefern.
     if (req.mode === 'navigate') {
       const shell = await cache.match('./index.html');
       if (shell) return shell;
