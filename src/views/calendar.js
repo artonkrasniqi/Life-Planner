@@ -47,7 +47,8 @@ export function render() {
     h('div', {
       style: {
         fontFamily: 'var(--font-mono)', fontSize: '15px', fontWeight: '700',
-        letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--white)', minWidth: '176px', textAlign: 'center',
+        letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--white)',
+        flex: '1 1 auto', minWidth: '0', textAlign: 'center', whiteSpace: 'nowrap',
       },
     }, `${MONTHS[local.m]} ${local.y}`),
     iconButton('chevronRight', 'Nächster Monat', () => { const n = addMonths(local.y, local.m, 1); local.y = n.y; local.m = n.m; rerender(); }),

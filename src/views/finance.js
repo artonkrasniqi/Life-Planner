@@ -59,7 +59,12 @@ export function render() {
   const monthNav = h('div', { class: 'row', style: { marginBottom: '10px' } },
     iconButton('chevronLeft', 'Vormonat', () => { const n = addMonths(local.y, local.m, -1); local.y = n.y; local.m = n.m; refresh(); }),
     h('div', {
-      style: { fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: '700', letterSpacing: '.14em', textTransform: 'uppercase', minWidth: '164px', textAlign: 'center', color: 'var(--white)' },
+      style: {
+        fontFamily: 'var(--font-mono)', fontSize: '14px', fontWeight: '700',
+        letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--white)',
+        // Wächst mit, schrumpft aber auch — eine feste Breite sprengt das Handy.
+        flex: '1 1 auto', minWidth: '0', textAlign: 'center', whiteSpace: 'nowrap',
+      },
     }, `${MONTHS[local.m]} ${local.y}`),
     iconButton('chevronRight', 'Folgemonat', () => { const n = addMonths(local.y, local.m, 1); local.y = n.y; local.m = n.m; refresh(); }),
     h('span', { class: 'spacer' }),

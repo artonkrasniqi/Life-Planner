@@ -380,6 +380,7 @@ body::after {
 
 .panel__head {
   display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap;
   margin: -4px 0 14px;
 }
 .panel__title {
@@ -399,13 +400,18 @@ body::after {
 .panel__tools { margin-left: auto; display: flex; align-items: center; gap: 6px; }
 
 .grid { display: grid; gap: 14px; }
+/* Raster- und Flex-Kinder dürfen von Haus aus nicht schmaler werden als ihr
+   breitester Inhalt. Auf dem Telefon schiebt das ganze Spalten über den Rand
+   hinaus — deshalb überall ausdrücklich erlauben zu schrumpfen. */
+.grid > *, .stack > * { min-width: 0; }
+.panel { min-width: 0; }
 .grid--kpi   { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
 .grid--kpi2  { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 620px) { .grid--kpi2 { grid-template-columns: 1fr; } }
 .grid--2     { grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); }
 .grid--3     { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 .grid--main  { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); align-items: start; }
-@media (max-width: 1080px) { .grid--main { grid-template-columns: 1fr; } }
+@media (max-width: 1080px) { .grid--main { grid-template-columns: minmax(0, 1fr); } }
 .stack { display: flex; flex-direction: column; gap: 14px; }
 .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .row--tight { gap: 6px; }
