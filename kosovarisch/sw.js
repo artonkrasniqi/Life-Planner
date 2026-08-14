@@ -9,7 +9,7 @@
    die App im Hauptverzeichnis bleibt davon unberührt.
    ============================================================ */
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = `fol-prizren-${VERSION}`;
 const NETWORK_TIMEOUT_MS = 3500;
 
