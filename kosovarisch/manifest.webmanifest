@@ -1,0 +1,25 @@
+{
+  "name": "Fol Prizren — Kosovarisch lernen",
+  "short_name": "Fol Prizren",
+  "description": "Kosovarisch (Prizren) von null an lernen: spielerisch, auf Deutsch erklärt, offline.",
+  "lang": "de",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "id": "fol-prizren",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fdf7f1",
+  "theme_color": "#e4173b",
+  "categories": ["education", "games"],
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Weiterlernen", "url": "./#/", "description": "Zurück in den Lernpfad" },
+    { "name": "Wiederholen", "url": "./#/ueben", "description": "Fällige Wörter üben" },
+    { "name": "Wörterbuch", "url": "./#/woerter", "description": "Wort nachschlagen" }
+  ]
+}

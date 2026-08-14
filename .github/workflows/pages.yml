@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - claude/life-planner-dashboard-wq41o1
+      - claude/ios-app-kosovisch-lernen-dj0r4x
   workflow_dispatch:
 
 permissions:
@@ -32,6 +33,9 @@ jobs:
           cp index.html manifest.webmanifest sw.js _site/
           cp -r styles src icons _site/
           cp README.md _site/ || true
+          # Zweite App: die Lern-App liegt unter /kosovarisch/ und
+          # bringt eigenes HTML, Manifest und eigenen Service Worker mit.
+          cp -r kosovarisch _site/
 
       # Kein enablement: true — der Automatik-Token von Actions darf die
       # Pages-Seite nicht anlegen ("Resource not accessible by integration").

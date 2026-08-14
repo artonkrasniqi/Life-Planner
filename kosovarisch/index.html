@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Fol Prizren — Kosovarisch lernen</title>
+<meta name="description" content="Kosovarisch lernen wie in Prizren gesprochen — spielerisch, auf Deutsch erklärt, offline und kostenlos." />
+<meta name="theme-color" content="#e4173b" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#16110f" media="(prefers-color-scheme: dark)" />
+<meta name="color-scheme" content="light dark" />
+
+<!-- Als App auf dem Home-Bildschirm -->
+<link rel="manifest" href="./manifest.webmanifest" />
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Fol Prizren" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23e4173b'/%3E%3Ctext x='16' y='23' font-family='system-ui,sans-serif' font-size='19' font-weight='700' fill='%23fff' text-anchor='middle'%3EF%3C/text%3E%3C/svg%3E" />
+
+<link rel="stylesheet" href="./styles/app.css" />
+</head>
+<body>
+
+<div id="app" class="app">
+  <header id="topbar" class="topbar"></header>
+  <main id="view" class="viewport" tabindex="-1"></main>
+  <nav id="tabbar" class="tabbar" aria-label="Hauptnavigation"></nav>
+</div>
+
+<div id="sheet-root"></div>
+<div id="toasts" class="toast-root" aria-live="polite"></div>
+<div id="fx" aria-hidden="true"></div>
+
+<noscript>
+  <p style="padding:24px;font-family:system-ui,sans-serif">
+    Fol Prizren braucht JavaScript. Bitte aktiviere es in den Browser-Einstellungen.
+  </p>
+</noscript>
+
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
