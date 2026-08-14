@@ -1,11 +1,16 @@
 name: Deploy to GitHub Pages
 
+# Hinweis: Die Umgebung "github-pages" nimmt Veröffentlichungen nur vom
+# Standard-Branch an. Andere Branches hier einzutragen bringt nichts —
+# der Lauf bricht sofort mit "environment protection rules" ab. Damit die
+# Lern-App unter /kosovarisch/ online geht, muss ihr Branch also in den
+# Standard-Branch übernommen werden (oder unter Settings → Environments →
+# github-pages als erlaubter Deployment-Branch eingetragen werden).
 on:
   push:
     branches:
       - main
       - claude/life-planner-dashboard-wq41o1
-      - claude/ios-app-kosovisch-lernen-dj0r4x
   workflow_dispatch:
 
 permissions:
