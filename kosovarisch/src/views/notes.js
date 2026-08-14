@@ -6,6 +6,7 @@
    ============================================================ */
 
 import { el } from '../ui/kit.js';
+import { speaker } from '../ui/speaker.js';
 import { CARDS, cardById } from '../data/grammar.js';
 import { COURSE } from '../data/course.js';
 
@@ -14,10 +15,16 @@ function section(part) {
   if (part.tip) return el('div.note__tip', {}, [el('span', { text: '💡' }), el('p', { text: part.tip })]);
   if (part.list) return el('ul.note__list', {}, part.list.map((t) => el('li', { text: t })));
   if (part.table) {
-    return el('div.note__table', {}, part.table.map((row, i) => el('div.note__tr', { class: i === 0 && row[0].length < 22 && /Prizren|Standard/.test(row[0]) ? 'is-head' : '' }, [
-      el('span.note__td', { text: row[0] }),
-      el('span.note__td.note__td--de', { text: row[1] }),
-    ])));
+    return el('div.note__table', {}, part.table.map((row, i) => {
+      const isHead = i === 0 && row[0].length < 22 && /Prizren|Standard/.test(row[0]);
+      return el('div.note__tr', { class: isHead ? 'is-head' : '' }, [
+        el('span.note__td', {}, [
+          el('span', { text: row[0] }),
+          isHead ? null : speaker(row[0]),
+        ]),
+        el('span.note__td.note__td--de', { text: row[1] }),
+      ]);
+    }));
   }
   return null;
 }

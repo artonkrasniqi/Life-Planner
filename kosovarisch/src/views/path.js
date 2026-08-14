@@ -119,7 +119,8 @@ export function renderPath(onStart) {
     el('div.hero__row', {}, [
       el('div', {}, [
         el('p.hero__hi', { text: `${greeting()}!` }),
-        el('h1.hero__title', { text: 'Fol Prizren' }),
+        el('h1.hero__title', { text: 'Kosovarisch' }),
+        el('p.hero__tag', { text: 'Der Dialekt aus Prizren' }),
         el('p.hero__sub', { text: `Rang: ${rank.name} · ${rank.de}` }),
       ]),
       ring(Math.min(1, doneToday / goal), {

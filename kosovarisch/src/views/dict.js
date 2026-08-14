@@ -12,7 +12,9 @@ import { COURSE } from '../data/course.js';
 import { normalize } from '../util.js';
 import { strength, cardOf } from '../engine/srs.js';
 import { isFav, toggleFav, settings } from '../state.js';
-import { speak, hasVoice } from '../speech.js';
+import { speak, canSpeak, describeVoice } from '../speech.js';
+import { speaker } from '../ui/speaker.js';
+import { preview } from '../pronounce.js';
 
 let filter = { text: '', unit: 0, only: 'alle' };
 
@@ -28,11 +30,23 @@ export function openEntry(id) {
         el('h3.entry__al', { text: e.al }),
         el('p.entry__ph', { text: `[${e.ph}]` }),
       ]),
-      hasVoice() ? el('button.speaker.speaker--big', { type: 'button', text: '🔊', 'aria-label': 'Vorlesen', on: { click: () => speak(e.al) } }) : null,
+      canSpeak()
+        ? el('div.speakers', {}, [
+          el('button.speaker.speaker--big', {
+            type: 'button', text: '🔊', 'aria-label': 'Vorlesen',
+            on: { click: () => speak(e.al) },
+          }),
+          el('button.speaker', {
+            type: 'button', text: '🐢', 'aria-label': 'Langsam vorlesen',
+            on: { click: () => speak(e.al, { rate: 0.55 }) },
+          }),
+        ])
+        : null,
     ]),
     el('p.entry__de', { text: e.de }),
     e.std ? el('p.entry__std', {}, [el('span.tag', { text: 'Standard' }), ` ${e.std}`]) : null,
     e.note ? el('p.entry__note', { text: e.note }) : null,
+    voiceHint(e.al),
     el('div.entry__meter', {}, [
       el('div.meter', {}, [el('span', { style: { width: `${pct}%` } })]),
       el('small', {
@@ -59,6 +73,19 @@ export function openEntry(id) {
   });
 }
 
+/* Bei einer Ersatzstimme zeigen, was ihr tatsächlich vorgelegt wird —
+   sonst wirkt die Aussprache wie ein Zufallsprodukt. */
+function voiceHint(al) {
+  const v = describeVoice();
+  if (!v || v.exact) return null;
+  const said = preview(al, v.lang);
+  if (!said) return null;
+  return el('p.entry__voice', {}, [
+    el('span.tag', { text: v.language }),
+    ` liest: ${said}`,
+  ]);
+}
+
 function row(e) {
   const pct = Math.round(strength(e.id) * 100);
   return el('button.wordrow', {
@@ -72,6 +99,7 @@ function row(e) {
     el('span.wordrow__side', {}, [
       isFav(e.id) ? el('span.wordrow__fav', { text: '★' }) : null,
       el('span.dot', { style: { '--pct': `${pct}%` }, title: `Lernstand ${pct}%` }),
+      speaker(e.al),
     ]),
   ]);
 }

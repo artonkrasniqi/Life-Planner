@@ -14,7 +14,8 @@ import {
 import { BADGES } from '../data/badges.js';
 import { ALL_LESSONS } from '../data/course.js';
 import { stats as srsStats } from '../engine/srs.js';
-import { hasVoice } from '../speech.js';
+import { usableVoices, currentVoice, setVoice, describeVoice, canSpeak, speak } from '../speech.js';
+import { preview } from '../pronounce.js';
 import { LEXICON } from '../data/lexicon.js';
 
 function weekChart() {
@@ -67,11 +68,84 @@ function goalRow(rerender) {
   ]);
 }
 
+/* ---------- Sprachausgabe ---------- */
+
+const PROBE = 'Qysh je? Faleminderit shumë!';
+
+function voiceSection(rerender) {
+  const voices = usableVoices();
+  const active = currentVoice();
+  const info = describeVoice();
+
+  if (!voices.length) {
+    return el('section.card', {}, [
+      el('h2.section__title', { text: 'Sprachausgabe' }),
+      el('p.note__p', { text: 'Dieses Gerät meldet gerade keine Stimme, mit der sich Albanisch nachbilden lässt.' }),
+      el('p.note__p', { text: 'In Safari kommt die Stimmenliste manchmal erst nach der ersten Berührung. Tippe kurz irgendwohin und lade die Seite neu — dann sollten die Hörknöpfe erscheinen.' }),
+      el('p.note__p', { text: 'Die Lautschrift in eckigen Klammern steht bei jedem Wort und funktioniert auch ohne Ton.' }),
+    ]);
+  }
+
+  const list = el('div.voicelist', {}, voices.slice(0, 12).map((v) => {
+    const on = active && v.voiceURI === active.voiceURI;
+    const code = String(v.lang).slice(0, 2).toLowerCase();
+    return el('button.voiceopt', {
+      type: 'button', class: on ? 'is-on' : '',
+      on: {
+        click: () => {
+          setVoice(v.voiceURI);
+          speak(PROBE);
+          rerender();
+        },
+      },
+    }, [
+      el('span.voiceopt__lang', { text: code.toUpperCase() }),
+      el('span.voiceopt__text', {}, [
+        el('strong', { text: v.name }),
+        el('small', { text: v.lang + (v.localService ? ' · auf dem Gerät' : ' · online') }),
+      ]),
+      on ? el('span.voiceopt__check', { text: '✓' }) : null,
+    ]);
+  }));
+
+  return el('section.card', {}, [
+    el('h2.section__title', { text: 'Sprachausgabe' }),
+    info
+      ? el('div.voicebar', {}, [
+        el('span.voicebar__icon', { text: info.exact ? '🎙️' : '🗣️' }),
+        el('div', {}, [
+          el('strong', { text: `${info.name} · ${info.language}` }),
+          el('small', { text: info.note }),
+        ]),
+      ])
+      : null,
+    !info?.exact
+      ? el('p.section__sub', {
+        text: `Albanische Stimmen gibt es auf iPhones nicht. Deshalb wird jedes Wort in die Schreibweise der gewählten Stimme übersetzt: „Qysh je" → „${preview('Qysh je', info?.lang) || 'qysh je'}".`,
+      })
+      : null,
+    el('div.btnrow', {}, [
+      el('button.btn.btn--primary', {
+        type: 'button', text: '🔊 Aussprache testen',
+        on: { click: () => speak(PROBE) },
+      }),
+    ]),
+    el('h3.section__title.section__title--sm', { text: 'Stimme wählen' }),
+    el('p.section__sub', { text: 'Türkisch und Italienisch treffen die albanischen Laute am besten, Deutsch ist am vertrautesten. Antippen spielt eine Probe ab.' }),
+    list,
+    el('h3.section__title.section__title--sm', { text: 'Tempo' }),
+    el('div.chips', {}, ['langsam', 'normal', 'schnell'].map((r) => el('button.chip', {
+      type: 'button', text: r, class: settings().rate === r ? 'is-on' : '',
+      on: { click: () => { setSetting('rate', r); speak(PROBE); rerender(); } },
+    }))),
+  ]);
+}
+
 function dataRow(rerender) {
   const download = () => {
     const blob = new Blob([exportState()], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-    const a = el('a', { href: url, download: `fol-prizren-${new Date().toISOString().slice(0, 10)}.json` });
+    const a = el('a', { href: url, download: `kosovarisch-${new Date().toISOString().slice(0, 10)}.json` });
     document.body.append(a);
     a.click();
     a.remove();
@@ -216,16 +290,19 @@ export function renderProfile(rerender) {
       toggleRow('haptics', 'Vibration', 'Kurzes Rütteln (nicht auf jedem iPhone)'),
       toggleRow('showStd', 'Standardalbanisch zeigen', 'Beim Lernen zusätzlich die Schulbuchform einblenden'),
       toggleRow('hearts', 'Mit Herzen spielen', 'Aus = üben ohne Fehlerlimit'),
-      toggleRow('speech', 'Sprachausgabe', hasVoice()
-        ? 'Albanische Stimme gefunden — Hörknöpfe sind aktiv'
-        : 'Dieses Gerät hat keine albanische Stimme installiert'),
+      toggleRow('speech', 'Sprachausgabe', canSpeak()
+        ? 'Hörknöpfe sind überall aktiv'
+        : 'Aus oder keine Stimme gefunden'),
+      toggleRow('autoplay', 'Automatisch vorlesen', 'Neue Wörter und Lösungen von allein anhören'),
       goalRow(rerender),
       dataRow(rerender),
     ]),
 
+    voiceSection(rerender),
+
     el('section.card', {}, [
       el('h2.section__title', { text: 'Über diese App' }),
-      el('p.note__p', { text: 'Fol Prizren bringt dir das Kosovarische bei, wie es rund um Prizren gesprochen wird — Gegisch, mit den türkischen Lehnwörtern der Stadt. Wo der Schulbuch-Standard abweicht, steht er dabei.' }),
+      el('p.note__p', { text: 'Diese App bringt dir Kosovarisch bei, wie es rund um Prizren gesprochen wird — Gegisch, mit den türkischen Lehnwörtern der Stadt. Wo der Schulbuch-Standard abweicht, steht er dabei.' }),
       el('p.note__p', { text: 'Alles läuft offline auf deinem Gerät. Kein Konto, keine Werbung, keine Datenübertragung.' }),
       el('p.note__p', { text: 'Tipp: In Safari über „Teilen → Zum Home-Bildschirm" wird daraus eine richtige App im Vollbild.' }),
     ]),

@@ -1,6 +1,6 @@
-# Fol Prizren — Kosovarisch lernen
+# Kosovarisch lernen
 
-Eine spielerische Lern-App für **Kosovarisch, wie es in und um Prizren gesprochen wird** — auf Deutsch erklärt, von null an, ohne Vorkenntnisse.
+Eine spielerische Lern-App für **Kosovarisch, wie es in und um Prizren gesprochen wird** — auf Deutsch erklärt, von null an, ohne Vorkenntnisse. Jedes Wort und jeder Satz lässt sich **anhören**.
 
 Läuft im Browser, lässt sich über Safari auf den Home-Bildschirm legen und funktioniert danach wie eine normale iPhone-App: Vollbild, offline, ohne Konto.
 
@@ -15,7 +15,7 @@ Läuft im Browser, lässt sich über Safari auf den Home-Bildschirm legen und fu
 
 **3.** Runterscrollen → **Zum Home-Bildschirm** → *Hinzufügen*.
 
-Fertig. Das Brücken-Icon liegt auf dem Startbildschirm, die App startet im Vollbild und läuft auch **ohne Internet** — sämtliche Inhalte liegen nach dem ersten Start auf dem Gerät.
+Fertig. Das Brücken-Icon liegt auf dem Startbildschirm, die App startet im Vollbild und läuft auch **ohne Internet** — sämtliche Inhalte liegen nach dem ersten Start auf dem Gerät, die Sprachausgabe eingeschlossen.
 
 > Am Android geht es genauso über *Menü ⋮ → App installieren*.
 
@@ -37,6 +37,7 @@ npm start                 # http://localhost:5173/kosovarisch/
 | **399 Einträge** | Wörter und ganze Sätze, alle mit Lautschrift |
 | **24 Karten** | Grammatik und Kultur, jede in zwei Minuten gelesen |
 | **23 Abzeichen** | vom ersten Schritt bis zum ganzen Kurs |
+| **Alles hörbar** | Hörknopf an jedem Wort, Hörliste zum Durchlaufen, Hör-Aufgaben |
 
 ### Die Einheiten
 
@@ -82,12 +83,15 @@ Dazu kommt der türkische Wortschatz, der Prizrens Alltag prägt: *sokak* (Gasse
 
 ## Wie gelernt wird
 
+**Sechs Bereiche:** Lernen (Pfad), Hören, Üben, Wörter, Regeln, Profil.
+
 **Lernpfad.** Die Lektionen sind der Reihe nach freigeschaltet: erst wenn eine sitzt, öffnet sich die nächste. Fehlerfreie Durchgänge geben drei Sterne.
 
-**Sieben Aufgabentypen**, aus dem Wortschatz jedes Mal neu gemischt — dieselbe Lektion läuft beim zweiten Mal anders:
+**Acht Aufgabentypen**, aus dem Wortschatz jedes Mal neu gemischt — dieselbe Lektion läuft beim zweiten Mal anders:
 
 * Bedeutung wählen (Kosovarisch → Deutsch)
 * Wort wählen (Deutsch → Kosovarisch)
+* Hören und erkennen (nur Ton)
 * Nach Lautschrift erkennen
 * Satz aus Kacheln bauen
 * Übersetzung eintippen
@@ -102,13 +106,40 @@ Dazu kommt der türkische Wortschatz, der Prizrens Alltag prägt: *sokak* (Gasse
 
 ---
 
-## Aussprache
+## Aussprache und Sprachausgabe
 
 Bei jedem Eintrag steht die Aussprache in deutscher Lautschrift: `qysh je` → *kjüsch je*. Die Regeln dahinter stehen in der Karte **Aussprache** (Grammatik).
 
 Kurz gefasst: `ë` = dumpfes e wie in *bitte*, `y` = ü, `ç` = tsch, `q` = weiches kj (in Prizren fast tsch), `gj` = dj, `xh` = dsch, `x` = ds, `c` = z, `v` = w, `rr` = gerollt, `ll` = dunkel, `nj` wie in *Cognac*.
 
-**Zur Sprachausgabe:** iOS bringt von Haus aus **keine albanische Stimme** mit. Ist keine installiert, blendet die App die Hörknöpfe aus — lieber gar keine Aussprache als eine falsche mit deutscher Stimme. Wer eine albanische Stimme einrichtet (*Einstellungen → Bedienungshilfen → Gesprochene Inhalte → Stimmen*), bekommt die Knöpfe automatisch.
+### Wie die App spricht, obwohl es keine albanische Stimme gibt
+
+Apple bietet für Albanisch **keine Stimme an** — auf keinem iPhone, in keiner Einstellung. Eine deutsche Stimme, der man einfach „qysh je" hinwirft, sagt „kwüsch jeh". Deshalb geht die App einen Umweg:
+
+1. Sie sucht die beste Stimme, die das Gerät hat. Reihenfolge: **Albanisch** (falls doch vorhanden) → **Türkisch** → **Italienisch** → **Deutsch** → **Spanisch**.
+2. Sie zerlegt das albanische Wort in seine Laute.
+3. Sie schreibt es in der Rechtschreibung dieser Stimme neu — und lässt *das* vorlesen.
+
+| Wort | Türkische Stimme | Italienische Stimme | Deutsche Stimme |
+|---|---|---|---|
+| qysh je | kyüş ye | ciusci ie | kjüsch je |
+| faleminderit | faleminderit | faleminderit | faleminderit |
+| gëzohem | gızohem | ghesoem | gesohem |
+| shpia | şpia | scipia | schpia |
+| dyqan | dükyan | ducian | dükjan |
+
+Türkisch trifft die albanischen Laute am genauesten (ş, ç, c, ü und das ı für „ë" sitzen fast eins zu eins), Deutsch ist am vertrautesten. Unter **Profil → Sprachausgabe** lässt sich die Stimme frei wählen, das Tempo einstellen und eine Probe abspielen.
+
+Das ist eine Annäherung, keine muttersprachliche Aufnahme — aber sie funktioniert offline, auf jedem Gerät, ohne Konto und ohne heruntergeladene Tondateien. Findet die App gar keine brauchbare Stimme, verschwinden die Hörknöpfe und die Lautschrift übernimmt.
+
+### Wo überall gehört werden kann
+
+* **Hören** (eigener Reiter): Einheit wählen, einzeln antippen oder alles am Stück durchlaufen lassen — mit mitlaufender Markierung.
+* **In der Lektion:** neue Wörter werden von allein vorgelesen, die richtige Lösung nach jeder Antwort ebenso. Dazu die Aufgabe *„Was hörst du?"* — nur Ton, kein Schriftbild.
+* **Im Wörterbuch:** Hörknopf in jeder Zeile, in der Detailkarte zusätzlich langsam (🐢).
+* **In den Grammatikkarten:** jedes albanische Beispiel in den Tabellen ist antippbar.
+
+Automatisches Vorlesen lässt sich im Profil abschalten.
 
 ---
 
@@ -117,6 +148,8 @@ Kurz gefasst: `ë` = dumpfes e wie in *bitte*, `y` = ü, `ç` = tsch, `q` = weic
 Alles liegt in `localStorage` auf dem Gerät — kein Konto, kein Server, keine Übertragung. Unter **Profil → Fortschritt sichern** lässt sich der Stand als JSON-Datei speichern und auf einem anderen Gerät wieder laden.
 
 > Wer in Safari die Website-Daten löscht, löscht auch den Lernstand. Vorher sichern.
+
+Die Sprachausgabe läuft ebenfalls vollständig auf dem Gerät (die Stimmen des Betriebssystems) — es geht nichts an einen Sprachdienst.
 
 ---
 
@@ -144,7 +177,8 @@ kosovarisch/
     │   ├── exercises.js    baut aus Wörtern die Aufgaben
     │   └── srs.js          Wiederholungsplan je Wort
     ├── ui/kit.js           Elemente, Toast, Sheet, Ring, Konfetti
-    └── views/              path · lesson · practice · dict · notes · profile
+    ├── ui/speaker.js       der Hörknopf
+    └── views/              path · lesson · listen · practice · dict · notes · profile
 ```
 
 Kein Build-Schritt, keine Abhängigkeiten: reine ES-Module, wie im Rest des Projekts.

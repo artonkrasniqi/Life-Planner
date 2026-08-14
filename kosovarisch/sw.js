@@ -1,5 +1,5 @@
 /* ============================================================
-   sw.js — Service Worker für Fol Prizren
+   sw.js — Service Worker für „Kosovarisch lernen"
 
    Strategie wie beim Life-Planner: Netz zuerst, Cache als
    Rückfall. So kommen Aktualisierungen sofort an, und ohne
@@ -9,8 +9,8 @@
    die App im Hauptverzeichnis bleibt davon unberührt.
    ============================================================ */
 
-const VERSION = 'v2';
-const CACHE = `fol-prizren-${VERSION}`;
+const VERSION = 'v3';
+const CACHE = `kosovarisch-${VERSION}`;
 const NETWORK_TIMEOUT_MS = 3500;
 
 const ASSETS = [
@@ -23,7 +23,9 @@ const ASSETS = [
   './src/util.js',
   './src/audio.js',
   './src/speech.js',
+  './src/pronounce.js',
   './src/ui/kit.js',
+  './src/ui/speaker.js',
   './src/data/lexicon.js',
   './src/data/course.js',
   './src/data/grammar.js',
@@ -34,6 +36,7 @@ const ASSETS = [
   './src/views/lesson.js',
   './src/views/practice.js',
   './src/views/dict.js',
+  './src/views/listen.js',
   './src/views/notes.js',
   './src/views/profile.js',
   './icons/icon-192.png',
@@ -55,7 +58,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys()
       .then((keys) => Promise.all(
-        keys.filter((k) => k.startsWith('fol-prizren-') && k !== CACHE)
+        keys.filter((k) => k.startsWith('kosovarisch-') && k !== CACHE)
           .map((k) => caches.delete(k)),
       ))
       .then(() => self.clients.claim()),

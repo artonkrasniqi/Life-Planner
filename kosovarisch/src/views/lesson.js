@@ -11,7 +11,8 @@ import { entry } from '../data/lexicon.js';
 import { cardById } from '../data/grammar.js';
 import { normalize, shuffle } from '../util.js';
 import { sfx } from '../audio.js';
-import { speak, hasVoice } from '../speech.js';
+import { speak, autoplayOn, stop as stopSpeech } from '../speech.js';
+import { speaker } from '../ui/speaker.js';
 import { review } from '../engine/srs.js';
 import {
   hearts, loseHeart, addXp, recordAnswer, completeLesson,
@@ -72,12 +73,13 @@ export function startLesson({ lesson, exercises, mode = 'lesson', onExit }) {
 
   /* ---------- Aufgaben zeichnen ---------- */
 
-  function speakerButton(text) {
-    if (!hasVoice()) return null;
-    return el('button.speaker', {
-      type: 'button', 'aria-label': 'Vorlesen', text: '🔊',
-      on: { click: () => speak(text) },
-    });
+  /* Von selbst vorlesen — aber nur, wenn das Wort ohnehin zu sehen
+     ist oder gehört werden soll. Bei deutschen Fragen wäre es die
+     Lösung. */
+  function maybeAutoplay(ex) {
+    if (!autoplayOn()) return;
+    const text = ex.type === 'listen' ? ex.speak : (ex.type === 'pick-de' ? ex.prompt : null);
+    if (text) setTimeout(() => speak(text), 260);
   }
 
   function optionList(ex) {
@@ -114,12 +116,32 @@ export function startLesson({ lesson, exercises, mode = 'lesson', onExit }) {
       stage.append(el('div.prompt', {}, [
         el('div.prompt__word', {}, [
           el('span', { text: ex.prompt }),
-          ex.type === 'pick-de' ? speakerButton(ex.prompt) : null,
+          ex.type === 'pick-de' ? speaker(ex.prompt) : null,
         ]),
         ex.type === 'pick-de' && ex.sub ? el('span.prompt__ph', { text: `[${ex.sub}]` }) : null,
         ex.type === 'sound' ? el('span.prompt__hint', { text: 'So klingt es in deutscher Lautschrift' }) : null,
       ]));
       stage.append(optionList(ex));
+      setPrimary(false);
+    }
+
+    /* Hörverstehen: nur der Ton, kein Schriftbild. */
+    if (ex.type === 'listen') {
+      const play = el('button.playbig', {
+        type: 'button', 'aria-label': 'Nochmal abspielen',
+        on: { click: () => speak(ex.speak) },
+      }, [el('span', { text: '🔊' })]);
+
+      stage.append(
+        el('div.listenbox', {}, [
+          play,
+          el('button.linkbtn', {
+            type: 'button', text: '🐢 Langsamer abspielen',
+            on: { click: () => speak(ex.speak, { rate: 0.55 }) },
+          }),
+        ]),
+        optionList(ex),
+      );
       setPrimary(false);
     }
 
@@ -259,6 +281,8 @@ export function startLesson({ lesson, exercises, mode = 'lesson', onExit }) {
       const card = cardById(ex.cardId);
       if (card) head.textContent = `Regelfrage · ${card.title}`;
     }
+
+    maybeAutoplay(ex);
   }
 
   /* ---------- Prüfen ---------- */
@@ -348,12 +372,21 @@ export function startLesson({ lesson, exercises, mode = 'lesson', onExit }) {
     });
     stage.querySelectorAll('.tile, .input').forEach((n) => { n.disabled = true; });
 
+    // Die richtige Lösung immer noch einmal hören — auch wenn sie saß.
+    const spoken = current.type === 'grammar' ? null : (item?.al || solution);
+    if (spoken && autoplayOn()) setTimeout(() => speak(spoken), correct ? 260 : 420);
+
     const banner = el(`div.feedback.${correct ? 'is-good' : 'is-bad'}`, {}, [
       el('div.feedback__row', {}, [
         el('span.feedback__icon', { text: correct ? '✓' : '✕' }),
         el('div', {}, [
           el('strong', { text: correct ? pickPraise() : 'Fast!' }),
-          solution ? el('p.feedback__sol', { text: solution }) : null,
+          solution
+            ? el('p.feedback__sol', {}, [
+              el('span', { text: solution }),
+              spoken ? speaker(spoken) : null,
+            ])
+            : null,
           item?.ph ? el('p.feedback__ph', { text: `[${item.ph}]` }) : null,
           item?.std && settings().showStd ? el('p.feedback__std', { text: `Standard: ${item.std}` }) : null,
           item?.note ? el('p.feedback__note', { text: item.note }) : null,
@@ -420,6 +453,7 @@ export function startLesson({ lesson, exercises, mode = 'lesson', onExit }) {
   }
 
   function complete() {
+    stopSpeech();
     const accuracy = answers ? (answers - mistakes) / answers : 1;
     const bonus = (lesson?.kind === 'exam' ? 40 : 20) + (mistakes === 0 ? 15 : 0);
     xp += bonus;

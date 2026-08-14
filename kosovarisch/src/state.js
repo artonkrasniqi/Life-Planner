@@ -8,7 +8,8 @@
 
 import { today, dayDiff, clamp } from './util.js';
 
-const KEY = 'fol-prizren-v1';
+const KEY = 'kosovarisch-v1';
+const OLD_KEY = 'fol-prizren-v1';   // hieß in der ersten Fassung noch so
 const listeners = new Set();
 
 /* ---------- Ränge ---------- */
@@ -48,7 +49,11 @@ function emptyState() {
     },
     settings: {
       sound: true, haptics: true, showStd: true,
-      hearts: true, goal: 150, speech: true,
+      hearts: true, goal: 150,
+      speech: true,        // Sprachausgabe an
+      autoplay: true,      // neue Wörter von allein vorlesen
+      rate: 'normal',      // langsam | normal | schnell
+      voiceURI: '',        // leer = beste vorhandene Stimme
     },
   };
 }
@@ -57,7 +62,7 @@ let state = load();
 
 function load() {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY) || localStorage.getItem(OLD_KEY);
     if (!raw) return emptyState();
     const parsed = JSON.parse(raw);
     // Fehlende Felder ergänzen, damit ältere Stände weiterlaufen.

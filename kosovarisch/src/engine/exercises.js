@@ -19,6 +19,7 @@ import { LEXICON, entry, unitEntries } from '../data/lexicon.js';
 import { cardsForUnit } from '../data/grammar.js';
 import { shuffle, sample, pick, randInt } from '../util.js';
 import { cardOf } from './srs.js';
+import { canSpeak } from '../speech.js';
 
 /* Ablenker: bevorzugt aus derselben Einheit, sonst aus dem ganzen Lexikon. */
 function distractors(item, field, count) {
@@ -79,6 +80,18 @@ function exSound(item) {
     question: 'Welches Wort klingt so?',
     prompt: item.ph,
     sub: item.de,
+    options: options(item.al, distractors(item, 'al', 3), 'al'),
+    answer: item.al,
+  };
+}
+
+/* Reines Hören: das Wort wird nur vorgelesen, nicht gezeigt. */
+function exListen(item) {
+  return {
+    type: 'listen',
+    itemId: item.id,
+    question: 'Was hörst du?',
+    speak: item.al,
     options: options(item.al, distractors(item, 'al', 3), 'al'),
     answer: item.al,
   };
@@ -166,6 +179,8 @@ function variantsFor(item, { hard }) {
     list.push(exSound(item));
     if (hard || known(item.id)) list.push(exType(item));
   }
+  // Hörverstehen nur, wenn das Gerät auch wirklich vorlesen kann.
+  if (canSpeak()) list.push(exListen(item));
   return list;
 }
 

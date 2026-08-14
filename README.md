@@ -6,7 +6,7 @@ Ganz oben liegt eine **Schnellnotizzeile**, die selbst erkennt, was aus dem Geti
 
 Keine Abhängigkeiten, kein Build-Schritt. Die Daten liegen lokal im Browser; auf Wunsch gleichen sich mehrere Geräte **Ende-zu-Ende-verschlüsselt** ab. Als App installierbar und offlinefähig.
 
-> **Zweite App im Repo:** [**Fol Prizren**](kosovarisch/README.md) — spielerisch Kosovarisch lernen, wie es rund um Prizren gesprochen wird, alles auf Deutsch erklärt. Eigenständige App unter `kosovarisch/`, ebenfalls installierbar: `https://artonkrasniqi.github.io/Life-Planner/kosovarisch/`
+> **Zweite App im Repo:** [**Kosovarisch lernen**](kosovarisch/README.md) — spielerisch Kosovarisch lernen, wie es rund um Prizren gesprochen wird, alles auf Deutsch erklärt. Eigenständige App unter `kosovarisch/`, ebenfalls installierbar: `https://artonkrasniqi.github.io/Life-Planner/kosovarisch/`
 
 ---
 
